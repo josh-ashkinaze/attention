@@ -51,7 +51,9 @@ def main():
     logging.info("Number of events after filtering: {}".format(len(json_df_filter)))
 
     all_data = []
+    counter = 0
     for index, row in json_df_filter.iterrows():
+        logging.info("Processing event {} of {}".format(counter, len(json_df_filter)))
         kws = row['keywords']
         search_type = ['web', 'search', 'youtube']
         for kw in kws:
@@ -59,6 +61,7 @@ def main():
                 trend_data = get_google_trends_data(kw, row['start_date'], row['end_date'], search_type)
                 trend_data['event'] = row['index']
                 all_data.append(trend_data)
+        counter += 1
 
     all_data_df = pd.merge(all_data)
     all_data.to_csv("../data/trend_data.csv")
