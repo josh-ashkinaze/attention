@@ -65,3 +65,7 @@ def main():
 
     all_data_df = pd.merge(all_data)
     all_data.to_csv("../data/trend_data.csv")
+
+if __name__ == "__main__":
+    main()
+
