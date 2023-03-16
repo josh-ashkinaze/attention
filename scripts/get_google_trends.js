@@ -1,33 +1,23 @@
 /**
-Author: Joshua Ashkinaze
-
-Fetches the Google Trends data for a given keyword (kw) within a specified date range
-(start_date and end_date) and outputs a JSON array of objects containing the keyword,
-interest value, and date for each day in the date range.
-@param {string} kw - The keyword to fetch Google Trends data for.
-@param {string} start_date - The start date for the date range (inclusive), in the format "YYYY-MM-DD".
-@param {string} end_date - The end date for the date range (inclusive), in the format "YYYY-MM-DD".
-@example
-// Fetch Google Trends data for "Node.js" between March 1, 2023, and March 15, 2023
-fetchInterestOverTime("Node.js", "2023-03-01", "2023-03-15");
-@returns {void}
-@output
-// JSON array of objects containing keyword, value, and date
-[
-{"kw": "Node.js", "value": 68, "date": "2023-03-01"},
-{"kw": "Node.js", "value": 65, "date": "2023-03-02"},
-...
-]
-*/
+ * Fetches the interest over time data from Google Trends for a given keyword and time range,
+ * and logs the results in JSON format.
+ *
+ * @param {string} kw - The keyword to search for.
+ * @param {string} start_date - The start date of the search range in YYYY-MM-DD format.
+ * @param {string} end_date - The end date of the search range in YYYY-MM-DD format.
+ * @param {string} search_type - The search type to filter results by; one of "news", "web", or "youtube".
+ */
 
 const googleTrends = require('google-trends-api');
 
-async function fetchInterestOverTime(kw, start_date, end_date) {
+async function fetchInterestOverTime(kw, start_date, end_date, search_type) {
   try {
     const data = await googleTrends.interestOverTime({
       keyword: kw,
       startTime: new Date(start_date),
       endTime: new Date(end_date),
+      geo: 'US',
+      ...(search_type && {property: search_type}),
     });
 
     const parsedData = JSON.parse(data).default.timelineData;
@@ -47,11 +37,11 @@ async function fetchInterestOverTime(kw, start_date, end_date) {
 
 // Retrieve command-line arguments
 const args = process.argv.slice(2);
-if (args.length < 3) {
-  console.log("Usage: node gtrends.js <keyword> <start_date> <end_date>");
+if (args.length < 4) {
+  console.log("Usage: node gtrends.js <keyword> <start_date> <end_date> <search_type>");
   process.exit(1);
 }
 
-const [kw, start_date, end_date] = args;
+const [kw, start_date, end_date, search_type] = args;
 
-fetchInterestOverTime(kw, start_date, end_date);
+fetchInterestOverTime(kw, start_date, end_date, search_type);
