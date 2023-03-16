@@ -1,3 +1,10 @@
+"""
+Author: Joshua Ashkinaze
+Date: 03/16/2023
+
+Description: This script scrapes Google Trends data for keywords
+"""
+
 import logging
 import os
 import pandas as pd
