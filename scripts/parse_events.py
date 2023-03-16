@@ -15,6 +15,7 @@ def convert_date(date_str):
 
 
 def main():
+    now_str = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     prompt_file_path = "../prompts/event_prompt.md"
     with open(prompt_file_path, "r") as file:
         data = file.read()
@@ -30,14 +31,14 @@ def main():
         key = f"{event_first_word}_{event_last_word}_{rumor_year}"
 
         rumors[key] = {
-            "Event": event,
-            "Rumor day": datetime.strptime(rumor_day, "%B %d, %Y").strftime("%Y-%m-%d"),
-            "Announcement day": datetime.strptime(announcement_day, "%B %d, %Y").strftime("%Y-%m-%d"),
-            "Description": description,
-            "Keywords": []
+            "event": event,
+            "rumor_day": datetime.strptime(rumor_day, "%B %d, %Y").strftime("%Y-%m-%d"),
+            "announce_day": datetime.strptime(announcement_day, "%B %d, %Y").strftime("%Y-%m-%d"),
+            "description": description,
+            "keywords": []
         }
 
-    with open("../data/rumors.json", "w") as outfile:
+    with open("../data/{}_rumors.json".format(now_str), "w") as outfile:
         json.dump(rumors, outfile, indent=4)
 
 
