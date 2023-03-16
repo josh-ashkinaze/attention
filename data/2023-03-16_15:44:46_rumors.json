@@ -179,7 +179,7 @@
         "rumor_day": "2018-12-12",
         "announce_day": "2018-12-19",
         "description": "Rumors spread about the US withdrawing troops from Syria, which was later confirmed by President Trump's official announcement.",
-        "keywords": ["syria troops", "withdrawal syria"]
+        "keywords": ["syria", "syria troops", "withdrawal syria"]
     },
     "Pete_campaign_2019": {
         "event": "Pete Buttigieg announcing his presidential campaign",
