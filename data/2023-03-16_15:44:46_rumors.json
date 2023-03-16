@@ -1,0 +1,205 @@
+{
+    "Justice_retirement_2018": {
+        "event": "Justice Anthony Kennedy's retirement",
+        "rumor_day": "2018-05-29",
+        "announce_day": "2018-06-27",
+        "description": "Rumors circulated that Justice Kennedy was considering retirement from the Supreme Court, which was later confirmed by his official announcement.",
+        "keywords": ["justice kennedy","justice kennedy retirement", "justice kennedy retire"]
+    },
+    "President_inquiry_2019": {
+        "event": "President Trump's impeachment inquiry",
+        "rumor_day": "2019-09-13",
+        "announce_day": "2019-09-24",
+        "description": "Rumors swirled about a possible impeachment inquiry against President Trump, which was later confirmed by House Speaker Nancy Pelosi's announcement.",
+        "keywords": ["donald trump","trump impeachment", "trump impeached"]
+    },
+    "Mitt_Senate_2018": {
+        "event": "Mitt Romney running for Utah Senate",
+        "rumor_day": "2018-01-15",
+        "announce_day": "2018-02-16",
+        "description": "There were rumors that Mitt Romney would run for the US Senate seat in Utah, which he later confirmed in an official announcement.",
+        "keywords": ["mitt romney","mitt romney senate", "mitt romney utah senate"]
+    },
+    "Joe_pick_2020": {
+        "event": "Joe Biden announcing Kamala Harris as VP pick",
+        "rumor_day": "2020-07-09",
+        "announce_day": "2020-08-11",
+        "description": "Rumors circulated about Joe Biden selecting Kamala Harris as his running mate, which was later confirmed in his official announcement.",
+        "keywords": ["kamala harris","biden harris", "biden vice presidential pick"]
+    },
+    "Repeal_(AHCA)_2017": {
+        "event": "Repeal and replace of Obamacare (AHCA)",
+        "rumor_day": "2017-02-10",
+        "announce_day": "2017-03-06",
+        "description": "Rumors spread about the Republican Party's plan to repeal and replace the Affordable Care Act, which was later announced by the House GOP.",
+        "keywords": ["AHCA", "obamacare repeal", "obamacare replace"]
+    },
+    "Michael_Advisor_2017": {
+        "event": "Michael Flynn's resignation as National Security Advisor",
+        "rumor_day": "2017-01-31",
+        "announce_day": "2017-02-13",
+        "description": "Rumors circulated that Michael Flynn was considering resignation, which was later confirmed when he resigned from his position.",
+        "keywords": ["michael flynn","michael flynn resign"]
+    },
+    "Net_FCC_2017": {
+        "event": "Net neutrality rules repeal by the FCC",
+        "rumor_day": "2017-10-25",
+        "announce_day": "2017-11-21",
+        "description": "There were rumors that the FCC would repeal net neutrality rules, which was later confirmed by an official announcement from the agency.",
+        "keywords": ["net neutrality", "net neutrality repeal", "fcc net neutrality"]
+    },
+    "Rex_State_2018": {
+        "event": "Rex Tillerson's firing as Secretary of State",
+        "rumor_day": "2018-02-26",
+        "announce_day": "2018-03-13",
+        "description": "Rumors circulated about Rex Tillerson's possible dismissal, which was later confirmed by President Trump's official announcement.",
+        "keywords": ["rex tillerson","rex tillerson fired"]
+    },
+    "Paris_withdrawal_2017": {
+        "event": "Paris Climate Agreement withdrawal",
+        "rumor_day": "2017-05-18",
+        "announce_day": "2017-06-01",
+        "description": "Rumors spread about the US withdrawing from the Paris Climate Agreement, which was later confirmed by President Trump's announcement.",
+        "keywords": ["paris climate agreement", "withdraw paris climate agreement"]
+    },
+    "Jeff_General_2018": {
+        "event": "Jeff Sessions' resignation as Attorney General",
+        "rumor_day": "2018-10-17",
+        "announce_day": "2018-11-07",
+        "description": "Rumors circulated about Jeff Sessions' possible resignation, which was later confirmed when he submitted his resignation letter.",
+        "keywords": ["jeff sessions resgins", "jeff sessions"]
+    },
+    "James_Director_2017": {
+        "event": "James Comey's firing as FBI Director",
+        "rumor_day": "2017-04-25",
+        "announce_day": "2017-05-09",
+        "description": "Rumors spread about James Comey's potential dismissal, which was later confirmed by President Trump's official announcement.",
+        "keywords": ["james comey", "james comey fired"]
+    },
+    "Nancy_again_2018": {
+        "event": "Nancy Pelosi becoming House Speaker again",
+        "rumor_day": "2018-11-10",
+        "announce_day": "2019-01-03",
+        "description": "Rumors circulated that Nancy Pelosi would regain her position as House Speaker, which was later confirmed when she was elected by the House of Representatives.",
+        "keywords": ["nancy pelosi", "nancy pelosi speaker"]
+    },
+    "John_Advisor_2018": {
+        "event": "John Bolton's appointment as National Security Advisor",
+        "rumor_day": "2018-02-20",
+        "announce_day": "2018-03-22",
+        "description": "Rumors circulated about John Bolton being appointed as National Security Advisor, which was later confirmed by President Trump's announcement.",
+        "keywords": ["john bolton", "john bolton nsa", "john bolton appointed"]
+    },
+    "Elizabeth_campaign_2018": {
+        "event": "Elizabeth Warren announcing her presidential campaign",
+        "rumor_day": "2018-12-15",
+        "announce_day": "2019-02-09",
+        "description": "Rumors spread about Elizabeth Warren's intention to run for president, which was later confirmed by her official campaign announcement.",
+        "keywords": ["elizabeth warren", "elizabeth warren presidential"]
+    },
+    "Betsy_Education_2016": {
+        "event": "Betsy DeVos' nomination for Secretary of Education",
+        "rumor_day": "2016-11-23",
+        "announce_day": "2016-11-23",
+        "description": "Rumors circulated about Betsy DeVos being nominated for Secretary of Education, which was later confirmed by President-elect Trump's announcement.",
+        "keywords": ["betsy devos", "betsy devos education"]
+    },
+    "Andrew_Director_2018": {
+        "event": "Andrew McCabe's firing as FBI Deputy Director",
+        "rumor_day": "2018-01-29",
+        "announce_day": "2018-03-16",
+        "description": "Rumors spread about Andrew McCabe's potential dismissal, which was later confirmed by the Department of Justice's announcement.",
+        "keywords": ["andrew mccabe", "andrew mccabe fired"]
+    },
+    "Merrick_Court_2016": {
+        "event": "Merrick Garland's nomination to the Supreme Court",
+        "rumor_day": "2016-02-24",
+        "announce_day": "2016-03-16",
+        "description": "Rumors circulated about Merrick Garland being nominated to the Supreme Court, which was later confirmed by President Obama's announcement.",
+        "keywords": ["merrick garland", "merrick garland supreme court"]
+    },
+    "Steve_Council_2017": {
+        "event": "Steve Bannon's removal from the National Security Council",
+        "rumor_day": "2017-03-01",
+        "announce_day": "2017-04-05",
+        "description": "Rumors spread about Steve Bannon's removal from the National Security Council, which was later confirmed by an official announcement.",
+        "keywords": ["steve bannon", "steve bannon nsc", "steve bannon removed"]
+    },
+    "Paul_Congress_2018": {
+        "event": "Paul Ryan's retirement from Congress",
+        "rumor_day": "2018-03-22",
+        "announce_day": "2018-04-11",
+        "description": "Rumors circulated about Paul Ryan's possible retirement from Congress, which was later confirmed by his official announcement.",
+        "keywords": ["paul ryan", "paul ryan retired"]
+    },
+    "Amy_Court_2020": {
+        "event": "Amy Coney Barrett's nomination to the Supreme Court",
+        "rumor_day": "2020-09-19",
+        "announce_day": "2020-09-26",
+        "description": "Rumors spread about Amy Coney Barrett being nominated to the Supreme Court, which was later confirmed by President Trump's announcement.",
+        "keywords": ["amy coney barrett", "amy coney barrett supreme court", "acb", "acb supreme court"]
+    },
+    "Kirstjen_Security_2019": {
+        "event": "Kirstjen Nielsen's resignation as Secretary of Homeland Security",
+        "rumor_day": "2019-03-05",
+        "announce_day": "2019-04-07",
+        "description": "Rumors circulated about Kirstjen Nielsen's possible resignation, which was later confirmed by her official announcement.",
+        "keywords": ["kirstjen nielsen", "kirstjen nielsen resigns", "kirstjen nielsen homeland security"]
+    },
+    "Bill_campaign_2019": {
+        "event": "Bill de Blasio announcing his presidential campaign",
+        "rumor_day": "2019-04-15",
+        "announce_day": "2019-05-16",
+        "description": "Rumors spread about New York City Mayor Bill de Blasio running for president, which was later confirmed by his official campaign announcement.",
+        "keywords": ["bill de blasio", "bill de blasio presidential", "de blasio", "de blasio presidential"]
+    },
+    "Trump_ban_2017": {
+        "event": "Trump administration's travel ban",
+        "rumor_day": "2017-01-25",
+        "announce_day": "2017-01-27",
+        "description": "Rumors circulated about the Trump administration implementing a travel ban, which was later confirmed by an official announcement and executive order.",
+        "keywords": ["donald trump","trump travel ban"]
+    },
+    "Bernie_campaign_2019": {
+        "event": "Bernie Sanders announcing his presidential campaign",
+        "rumor_day": "2019-01-20",
+        "announce_day": "2019-02-19",
+        "description": "Rumors spread about Bernie Sanders running for president again, which was later confirmed by his official campaign announcement.",
+        "keywords": ["bernie sanders", "bernie sanders president", "bernie sanders presidential"]
+    },
+    "John_Staff_2017": {
+        "event": "John Kelly's appointment as White House Chief of Staff",
+        "rumor_day": "2017-07-20",
+        "announce_day": "2017-07-28",
+        "description": "Rumors circulated about John Kelly being appointed as White House Chief of Staff, which was later confirmed by President Trump's announcement.",
+        "keywords": ["john kelly", "john kelly chief of staff", "john kelly appointed"]
+    },
+    "Withdrawal_Syria_2018": {
+        "event": "Withdrawal of troops from Syria",
+        "rumor_day": "2018-12-12",
+        "announce_day": "2018-12-19",
+        "description": "Rumors spread about the US withdrawing troops from Syria, which was later confirmed by President Trump's official announcement.",
+        "keywords": ["syria troops", "withdrawal syria"]
+    },
+    "Pete_campaign_2019": {
+        "event": "Pete Buttigieg announcing his presidential campaign",
+        "rumor_day": "2019-01-16",
+        "announce_day": "2019-04-14",
+        "description": "Rumors circulated about Pete Buttigieg running for president, which was later confirmed by his official campaign announcement.",
+        "keywords": ["pete buttigieg", "pete buttigieg presidential", "buttigieg", "buttigieg presidential"]
+    },
+    "Nikki_UN_2018": {
+        "event": "Nikki Haley's resignation as US Ambassador to the UN",
+        "rumor_day": "2018-09-26",
+        "announce_day": "2018-10-09",
+        "description": "Rumors spread about Nikki Haley's possible resignation, which was later confirmed by her official announcement.",
+        "keywords": ["nikki haley", "nikki haley resigns", "nikki haley un"]
+    },
+    "Impeachment_Ukraine_2019": {
+        "event": "Impeachment inquiry against President Trump over Ukraine",
+        "rumor_day": "2019-09-13",
+        "announce_day": "2019-09-24",
+        "description": "Rumors circulated about an impeachment inquiry against President Trump related to his interactions with Ukraine, which was later confirmed by House Speaker Nancy Pelosi's announcement.",
+        "keywords": ["donald trump", "trump impeachment", "trump ukraine"]
+    }
+}
