@@ -15,7 +15,7 @@ import argparse
 import json
 
 
-def get_google_trends_data(kw, start_date, end_date, search_type, sleep_time=(10, 20)):
+def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multiplier=1, sleep_time=(1, 2)):
     """
     This function fetches Google Trends data for a given keyword and date range
 
@@ -24,12 +24,13 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_time=(10
         start_date: Start date of the search
         end_date: End date of the search
         search_type: Type of search to perform (e.g. 'web', 'news', 'images')
+        sleep_multiplier: Multiplier for the sleep time
         sleep_time: Tuple of the minimum and maximum time to sleep between requests
     Returns:
         Pandas DataFrame of the Google Trends data if successful, otherwise
         a DataFrame with a single row with the value -1.
     """
-    sleep_time = random.uniform(sleep_time[0], sleep_time[1])
+    sleep_time = random.uniform(sleep_time[0] * sleep_multiplier, sleep_time[1] * sleep_multiplier)
     logging.info("Sleeping for {}".format(sleep_time))
     time.sleep(sleep_time)
     script_path = "get_google_trends.js"
@@ -56,16 +57,16 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_time=(10
                 return df
             else:
                 print("Error fetching data:", result.stderr)
-                return pd.DataFrame({'kw': kw, 'date': start_date, 'value': -1})
+                return pd.DataFrame({'kw': str(kw), 'date': start_date, 'value': -1})
         except Exception as e:
             logging.info("Error fetching data (parsing response) for keyword {}: {}".format(kw, e))
-            return pd.DataFrame({'kw': kw, 'date': start_date, 'value': -1})
+            return pd.DataFrame({'kw': str(kw), 'date': start_date, 'value': -1})
     except Exception as e:
         logging.info("Error fetching data for keyword {}: {}".format(kw, e))
-        return pd.DataFrame({'kw': kw, 'date': start_date, 'value': -1})
+        return pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1})
 
 
-def main(debug=False):
+def main(debug=False, sleep_multiplier=1):
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
     logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s')
     random.seed(416)
@@ -97,22 +98,24 @@ def main(debug=False):
         search_type = ['web', 'search', 'youtube']
         for kw in kws:
             for search_type in search_type:
-                trend_data = get_google_trends_data(kw, row['start_date'], row['end_date'], search_type)
+                trend_data = get_google_trends_data(kw=kw,
+                                                    start_date=row['start_date'],
+                                                    end_date=row['end_date'],
+                                                    search_type=search_type,
+                                                    sleep_multiplier=sleep_multiplier)
                 trend_data['event'] = row['index']
                 all_data.append(trend_data)
         counter += 1
 
-    logging.info("Got the data")
     all_data_df = pd.concat(all_data)
-    logging.info("Merged dfs")
     fn = "../data/trend_data.csv"
     if debug: fn = "../data/trend_data_debug.csv"
-    logging.info("Saved dfs")
     all_data.to_csv(fn)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape Google Trends data for keywords")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    parser.add_argument("--sleep", type=float, default=1, help="Sleep time multiplier")
     args = parser.parse_args()
-    main(debug=args.debug)
+    main(debug=args.debug, sleep_multiplier=args.sleep)
