@@ -57,13 +57,13 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multipli
                 return df
             else:
                 print("Error fetching data:", result.stderr)
-                return pd.DataFrame({'kw': str(kw), 'date': start_date, 'value': -1})
+                return  pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1, 'search_type': search_type})
         except Exception as e:
             logging.info("Error fetching data (parsing response) for keyword {}: {}".format(kw, e))
-            return pd.DataFrame({'kw': str(kw), 'date': start_date, 'value': -1})
+            return  pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1, 'search_type': search_type})
     except Exception as e:
         logging.info("Error fetching data for keyword {}: {}".format(kw, e))
-        return pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1})
+        return pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1, 'search_type': search_type})
 
 
 def main(debug=False, sleep_multiplier=1):
