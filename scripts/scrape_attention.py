@@ -13,6 +13,7 @@ import random
 import subprocess
 import argparse
 import json
+import csv
 
 
 def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multiplier=1, sleep_time=(1, 2)):
@@ -88,29 +89,39 @@ def main(debug=False, sleep_multiplier=1):
     if debug:
         json_df_filter = json_df_filter.head(1)
 
+    # Set the output file path
+    fn = "../data/trend_data.csv"
+    if debug:
+        fn = "../data/trend_data_debug.csv"
+
+    # Write header
+    fieldnames = ["date", "value", "search_type", "event", "kw"]
+    with open(fn, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
     # Loop through each event, and get web, search, and youtube data for each keyword in
     # the associated event
-    all_data = []
     counter = 0
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
-        search_type = ['web', 'search', 'youtube']
+        search_types = ['web', 'search', 'youtube']
         for kw in kws:
-            for search_type in search_type:
+            for search_type in search_types:
                 trend_data = get_google_trends_data(kw=kw,
                                                     start_date=row['start_date'],
                                                     end_date=row['end_date'],
                                                     search_type=search_type,
                                                     sleep_multiplier=sleep_multiplier)
                 trend_data['event'] = row['index']
-                all_data.append(trend_data)
-        counter += 1
 
-    all_data_df = pd.concat(all_data)
-    fn = "../data/trend_data.csv"
-    if debug: fn = "../data/trend_data_debug.csv"
-    all_data.to_csv(fn)
+                # Append the trend data to the CSV file
+                with open(fn, 'a', newline='') as f:
+                    trend_data_dict = trend_data.to_dict(orient='records')
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writerows(trend_data_dict)
+        counter += 1
 
 
 if __name__ == "__main__":
