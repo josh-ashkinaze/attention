@@ -17,7 +17,7 @@ async function fetchInterestOverTime(kw, start_date, end_date, search_type) {
       startTime: new Date(start_date),
       endTime: new Date(end_date),
       geo: 'US',
-      ...(search_type && {property: search_type}),
+      ...(search_type && search_type !== 'web' ? {property: search_type} : {}),
     });
 
     const parsedData = JSON.parse(data).default.timelineData;
