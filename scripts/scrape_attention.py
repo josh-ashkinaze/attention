@@ -106,7 +106,7 @@ def main(debug=False, sleep_multiplier=1):
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
-        search_types = ['web', 'search', 'youtube']
+        search_types = ['web', 'news', 'youtube']
         for kw in kws:
             for search_type in search_types:
                 trend_data = get_google_trends_data(kw=kw,
