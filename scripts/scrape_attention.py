@@ -51,11 +51,15 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multipli
         # Try to parse response
         try:
             if result.returncode == 0:
-                json_data = json.loads(result.stdout)
-                df = pd.DataFrame(json_data)
-                df['search_type'] = search_type
-                logging.info(df.head(1))
-                return df
+                try:
+                    json_data = json.loads(result.stdout)
+                    df = pd.DataFrame(json_data)
+                    df['search_type'] = search_type
+                    logging.info(df.head(1))
+                    return df
+                except Exception as e:
+                    return pd.DataFrame({'kw': str(kw), 'date': start_date, 'value': -1, 'search_type': search_type})
+
             else:
                 print("Error fetching data:", result.stderr)
                 return  pd.DataFrame({'kw':str(kw), 'date': start_date, 'value': -1, 'search_type': search_type})
@@ -106,7 +110,7 @@ def main(debug=False, sleep_multiplier=1):
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
-        search_types = ['web', 'news', 'youtube']
+        search_types = ['web', 'search', 'youtube']
         for kw in kws:
             for search_type in search_types:
                 trend_data = get_google_trends_data(kw=kw,
