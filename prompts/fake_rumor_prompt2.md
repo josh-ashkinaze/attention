@@ -3,8 +3,7 @@
 Generated on March 24 using Chat GPT Plus UI with GPT4
 
 # Prompt: 
-
-- INSTRUCTIONS
+INSTRUCTIONS
 Simulate Reuters headlines of rumors and announcements for U.S political events. 
 
 Generate 10 fictitious but realistic sounding political events. Then for each event, generate a rumor about the event as well as an official announcement about the event. The events should involve real United States politicians. Balance rumors across Republicans and Democrats. 
