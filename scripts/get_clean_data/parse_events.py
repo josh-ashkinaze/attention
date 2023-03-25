@@ -16,7 +16,7 @@ def convert_date(date_str):
 
 def main():
     now_str = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    prompt_file_path = "../prompts/event_prompt.md"
+    prompt_file_path = "../../prompts/event_prompt.md"
     with open(prompt_file_path, "r") as file:
         data = file.read()
     pattern = r"Event: (.*?)\nRumor day: (.*?)\nAnnouncement day: (.*?)\nDescription: (.*?)\n\n\n"

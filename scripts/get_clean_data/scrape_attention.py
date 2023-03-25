@@ -75,7 +75,7 @@ def main(debug=False, sleep_multiplier=1):
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
     logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s')
     random.seed(416)
-    json_df = pd.read_json("../data/2023-03-16_15:44:46_rumors.json").T.reset_index()
+    json_df = pd.read_json("../../data/2023-03-16_15:44:46_rumors.json").T.reset_index()
 
     # Convert the 'Rumor day' and 'Announcement day' columns to datetime objects
     json_df['rumor_day'] = pd.to_datetime(json_df['rumor_day'])
