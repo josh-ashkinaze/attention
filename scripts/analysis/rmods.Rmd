@@ -1,0 +1,108 @@
+---
+title: "panel"
+author: "Joshua Ashkinaze"
+date: "2023-03-28"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Load packages
+
+```{r setup, include=FALSE, echo=TRUE}
+library(emmeans)
+library(dplyr)
+library(plm)
+library(sandwich)
+library(stringr)
+library(readr)
+library(stargazer)
+library(lubridate)
+library(ggthemes)
+library(lme4)
+library(ggplot2)
+
+# emm_options(lmerTest.limit = 17000)
+# emm_options(pbkrtest.limit = 17000)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Data
+
+```{r load, echo=TRUE}
+##############################################
+# LOAD DATA
+##############################################
+# read in data
+df <- read_csv("https://raw.githubusercontent.com/josh-ashkinaze/attention/main/data/trend_merged_data_modeling.csv")
+df$year <- year(df$date)
+df$month <- month(df$date)
+df$week <- week(df$date)
+
+# kwid is unique kw-id: (event, keyword, search_type)
+df$kwid <- paste(paste(df$kw, df$event, "_"), df$search_type, "_")
+
+# kwe is (keyword, event)
+df$kwe <- paste(paste(df$kw, df$event, "_"))
+                
+df$search_type <- factor(df$search_type)
+df$search_type <- relevel(df$search_type, ref = "web")
+df$period <- factor(df$period)
+df$period <- relevel(df$period, "control")
+df$kw <- as.factor(df$kw)
+df$event <- as.factor(df$event)
+df$log_val <- log(df$value+1)
+
+
+```
+
+# Modeling
+
+```{r models, echo=TRUE, display=TRUE}
+
+##############################################
+# RANDOM FX VERSION
+##############################################
+# Make mixed model 
+model <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event/kw), data = df)
+
+# Look at contrasts: 
+# For rumors, is attention higher for google news and YT vs web?
+# For announcements, is attention higher for web vs google news and YT?
+em <- emmeans(model, ~ period*search_type)
+em_df <- as.data.frame(em)
+pairs <- pairs(em, by = "period", type = "response", rev = TRUE)
+print(pairs)
+
+# Let's graph the Search Type X Period emmeans
+em_df$lower <- em_df$asymp.LCL
+em_df$upper <- em_df$asymp.UCL
+ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lower, ymax=upper)) + 
+  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
+  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
+  labs(x="Period", y="Normalized Attention (0-100)", fill="Search type") + theme_few() + ggtitle("Attention during rumors and announcements of political events\n(Estimates from marginal means)")
+
+
+
+##############################################
+# PANEL MODEL VERSION
+##############################################
+# Fit the fixed effects model and then get newey west standard errors
+fem <- plm(value ~ period * search_type, data = df, model = "within", index = c("kwe", "date", "search_type"))
+fixed_ses <- summary(fem, vcov = vcovNW)
+fem_robust_se <- fixed_ses$coefficients[, 2]
+fem_p_values <- fixed_ses$coefficients[, 4]
+
+
+##############################################
+# DISLAY MODELS
+##############################################
+stargazer(fem, model, type='text', se=list(fem_robust_se, NULL), p=list(fem_p_values, NULL))
+```
+
+```{r}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to
+prevent printing of the R code that generated the plot.
