@@ -204,6 +204,7 @@ def main(debug=False, sleep_multiplier=1):
                     trend_data['search_type'] = search_type
                 elif search_type == 'wiki':
                     trend_data, wiki_kw  = get_wiki_data(kw, row['start_date'], row['end_date'])
+                    wiki_article_matches.append({'kw': kw, 'wiki_kw': wiki_kw})
                     trend_data['search_type'] = search_type
                 else:
                     trend_data = get_google_trends_data(kw=kw,
@@ -219,6 +220,9 @@ def main(debug=False, sleep_multiplier=1):
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writerows(trend_data_dict)
         counter += 1
+    wiki_df = pd.DataFrame(wiki_article_matches)
+    wiki_df.to_csv("../../data/wiki_article_matches.csv", index=False)
+    logging.info("Done")
 
 
 if __name__ == "__main__":
