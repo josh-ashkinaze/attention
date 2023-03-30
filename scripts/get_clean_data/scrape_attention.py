@@ -11,9 +11,92 @@ import pandas as pd
 import time
 import random
 import subprocess
+import numpy as np
 import argparse
 import json
 import csv
+import datetime
+import multiprocessing
+import wikipedia
+import pageviewapi
+from pmaw import PushshiftAPI
+
+
+def get_wiki_data(kw, start_date, end_date):
+    """
+    This function fetches Wikipedia page views data for a given keyword and date range
+
+    Params:
+        kw: Keyword to search for
+        start_date: Start date of the search
+        end_date: End date of the search
+    Returns:
+        Pandas DataFrame of the Wikipedia page views data if successful, otherwise
+        a DataFrame with a single row with the value np.nan.
+    """
+
+    start_date_formatted = datetime.datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
+    end_date_formatted = datetime.datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
+
+    # First let's get the most relevant Wikipedia article for the keyword
+    try:
+        search_results = wikipedia.search(kw)
+        if not search_results:
+            return  pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
+        else:
+            most_relevant_article = search_results[0]
+    except Exception as e:
+        logging.error(f"Error getting Wikipedia article for {kw}: {e}")
+        return pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
+
+    # Now let's get the page views data for the most relevant article
+    try:
+        pageview_data = pageviewapi.per_article('en.wikipedia', most_relevant_article, start_date_formatted, end_date_formatted,
+                                         access='all-access', agent='all-agents', granularity='daily')
+        dates = [datetime.datetime.strptime(item['timestamp'][:8], "%Y%m%d").strftime("%Y-%m-%d") for item in
+                 pageview_data['items']]
+        values = [item['views'] for item in pageview_data['items']]
+        df = pd.DataFrame({'date': dates, 'value': values, 'search_type': 'wikipedia'})
+        df['kw'] = kw
+        return df, most_relevant_article
+    except Exception as e:
+        logging.error(f"Error getting Wikipedia article for {kw}: {e}")
+        return pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
+
+
+def date_to_unix(date_str):
+    dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    return int(time.mktime(dt.timetuple()))
+
+
+def get_reddit_data(api, kw, start_date, end_date):
+    """This function fetches Reddit data for a given keyword and date range"""
+    def date_to_unix(date_str):
+        dt = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        return int(time.mktime(dt.timetuple()))
+
+    start_date_unix = date_to_unix(start_date)
+    end_date_unix = date_to_unix(end_date)
+
+    date_range = pd.date_range(start_date, end_date, freq='D')
+    daily_counts = []
+
+    for date in date_range[:-1]:
+        day_start = date_to_unix(date.strftime("%Y-%m-%d"))
+        day_end = date_to_unix((date + pd.DateOffset(days=1)).strftime("%Y-%m-%d"))
+
+        posts = api.search_submissions(q=kw, after=day_start, before=day_end)
+        post_count = sum(1 for _ in posts)
+
+        daily_counts.append({
+            'date': date.strftime("%Y-%m-%d"),
+            'kw': kw,
+            'value': post_count
+        })
+
+    daily_df = pd.DataFrame(daily_counts)
+
+    return daily_df
 
 
 def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multiplier=1, sleep_time=(1, 2)):
@@ -94,9 +177,9 @@ def main(debug=False, sleep_multiplier=1):
         json_df_filter = json_df_filter.head(1)
 
     # Set the output file path
-    fn = "../data/trend_data.csv"
+    fn = "../../data/trend_data_new2.csv"
     if debug:
-        fn = "../data/trend_data_debug.csv"
+        fn = "../../data/trend_data_debug2.csv"
 
     # Write header
     fieldnames = ["date", "value", "search_type", "event", "kw"]
@@ -107,17 +190,27 @@ def main(debug=False, sleep_multiplier=1):
     # Loop through each event, and get web, search, and youtube data for each keyword in
     # the associated event
     counter = 0
+    wiki_article_matches = []
+    api = PushshiftAPI(num_workers=multiprocessing.cpu_count()-1)
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
-        search_types = ['web', 'search', 'youtube']
+        search_types = ['web', 'search', 'youtube', 'reddit', 'wiki']
         for kw in kws:
             for search_type in search_types:
-                trend_data = get_google_trends_data(kw=kw,
-                                                    start_date=row['start_date'],
-                                                    end_date=row['end_date'],
-                                                    search_type=search_type,
-                                                    sleep_multiplier=sleep_multiplier)
+                logging.info("Processing keyword: {} for search type {}".format(kw, search_type))
+                if search_type == 'reddit':
+                    trend_data = get_reddit_data(api, kw, row['start_date'], row['end_date'])
+                    trend_data['search_type'] = search_type
+                elif search_type == 'wiki':
+                    trend_data, wiki_kw  = get_wiki_data(kw, row['start_date'], row['end_date'])
+                    trend_data['search_type'] = search_type
+                else:
+                    trend_data = get_google_trends_data(kw=kw,
+                                                        start_date=row['start_date'],
+                                                        end_date=row['end_date'],
+                                                        search_type=search_type,
+                                                        sleep_multiplier=sleep_multiplier)
                 trend_data['event'] = row['index']
 
                 # Append the trend data to the CSV file
