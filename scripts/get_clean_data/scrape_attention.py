@@ -5,10 +5,22 @@ Date: 03/16/2023
 Description: This script scrapes Google Trends data for keywords
 """
 
+import argparse
+import csv
+import datetime
+import datetime as dt
+import json
 import logging
 import os
-import pandas as pd
+import random
+import subprocess
 import time
+
+import numpy as np
+import pandas as pd
+import pytz
+import requests
+import tweepy
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -16,36 +28,67 @@ from tenacity import (
     before_sleep_log,
     retry_if_exception_type
 )
-import random
-import subprocess
-import numpy as np
-import argparse
-import json
-import csv
-import requests
-import datetime
-import multiprocessing
-import wikipedia
-import pageviewapi
-from pmaw import PushshiftAPI
 from waybacknews.searchapi import SearchApiClient
-import datetime as dt
+
 
 class TooManyRequestsError(Exception):
     pass
 
-def date_to_unix_timestamp(date_string):
+
+def date_to_unix_timestamp(date_string, start_or_end):
     dt = datetime.datetime.strptime(date_string, '%Y-%m-%d')
-    return int(time.mktime(dt.timetuple()))
+
+    if start_or_end == 'start':
+        dt = dt.replace(hour=0, minute=0, second=0)
+    elif start_or_end == 'end':
+        dt = dt.replace(hour=23, minute=59, second=59)
+    else:
+        raise ValueError("Invalid value for 'start_or_end'. Must be either 'start' or 'end'.")
+
+    # Make the datetime object timezone-aware (assuming UTC)
+    dt_utc = dt.replace(tzinfo=pytz.UTC)
+
+    # Convert the datetime object to Eastern Standard Time (EST)
+    est = pytz.timezone('US/Eastern')
+    dt_est = dt_utc.astimezone(est)
+
+    # Return the Unix timestamp
+    return int(dt_est.timestamp())
+
+
+def get_twitter_data(kw, start_date, end_date, bearer_token):
+    data = []
+    try:
+        client = tweepy.Client(
+            bearer_token=bearer_token,
+            wait_on_rate_limit=True)
+        counts = client.get_all_tweets_count(query=kw, start_time=f'{start_date}T00:00:00-05:00',
+                                             end_time=f'{end_date}T11:59:59-05:00', granularity='day')
+        for x in counts.data:
+            row = {'day': x['start'].split("T")[0], 'kw': kw, 'value': x['tweet_count']}
+            data.append(row)
+    except Exception as e:
+        return pd.DataFrame(
+            {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
+    return pd.DataFrame(data)
+
 
 def get_news_data(kw, start_date, end_date):
-    """Get news counts from mediacloud"""
     start = dt.datetime.strptime(start_date, "%Y-%m-%d")
     end = dt.datetime.strptime(end_date, "%Y-%m-%d")
 
+    # Make the start and end datetime objects timezone-aware (assuming UTC)
+    start_utc = start.replace(tzinfo=pytz.UTC)
+    end_utc = end.replace(tzinfo=pytz.UTC)
+
+    # Convert the datetime objects to Eastern Standard Time (EST)
+    est = pytz.timezone('US/Eastern')
+    start_est = start_utc.astimezone(est)
+    end_est = end_utc.astimezone(est)
+
     try:
         api = SearchApiClient("mediacloud")
-        cts = api.count_over_time(kw, start, end)
+        cts = api.count_over_time(kw, start_est, end_est)
         result = []
         for entry in cts:
             result.append({
@@ -58,7 +101,8 @@ def get_news_data(kw, start_date, end_date):
     except Exception as e:
         logging.error(f"Error getting news attention for {kw}: {e}")
         return pd.DataFrame(
-            {'kw': [str(kw)], 'date': [start_date], 'value': [-1]}, index=[0])
+            {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
+
 
 @retry(wait=wait_random_exponential(multiplier=0.05, min=1, max=60),
        stop=stop_after_attempt(30),
@@ -66,13 +110,9 @@ def get_news_data(kw, start_date, end_date):
        before_sleep=before_sleep_log(logging, logging.INFO),
        reraise=False)
 def get_reddit_data(kw, start_date, end_date):
-    def date_to_unix_timestamp(date_string):
-        dt = datetime.datetime.strptime(date_string, '%Y-%m-%d')
-        return int(time.mktime(dt.timetuple()))
-
     try:
-        start_timestamp = date_to_unix_timestamp(start_date)
-        end_timestamp = date_to_unix_timestamp(end_date)
+        start_timestamp = date_to_unix_timestamp(start_date, "start")
+        end_timestamp = date_to_unix_timestamp(end_date, "end")
         date_range = pd.date_range(start_date, end_date, freq='D')
         data_list = []
         for date in date_range:
@@ -139,7 +179,9 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multipli
                     logging.info(df.head(1))
                     return df
                 except Exception as e:
-                    return pd.DataFrame({'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]}, index=[0])
+                    return pd.DataFrame(
+                        {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
+                        index=[0])
 
             else:
                 print("Error fetching data:", result.stderr)
@@ -147,11 +189,13 @@ def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multipli
                     {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]}, index=[0])
         except Exception as e:
             logging.info("Error fetching data (parsing response) for keyword {}: {}".format(kw, e))
-            return pd.DataFrame({'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
-                                index=[0])
+            return pd.DataFrame(
+                {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
+                index=[0])
     except Exception as e:
         logging.info("Error fetching data for keyword {}: {}".format(kw, e))
-        return pd.DataFrame({'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]}, index=[0])
+        return pd.DataFrame({'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
+                            index=[0])
 
 
 def main(debug=False, sleep_multiplier=1):
@@ -160,6 +204,11 @@ def main(debug=False, sleep_multiplier=1):
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
     logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s')
     random.seed(416)
+
+    with open("../src/creds.json", "r") as json_file:
+        creds = json.load(json_file)
+    bearer_token = creds["bearer_token"]
+
     json_df = pd.read_json("../../data/2023-03-16_15_44_46_rumors.json").T.reset_index()
 
     # Convert the 'Rumor day' and 'Announcement day' columns to datetime objects
@@ -192,7 +241,6 @@ def main(debug=False, sleep_multiplier=1):
     # Loop through each event, and get web, search, and youtube data for each keyword in
     # the associated event
     counter = 0
-    wiki_article_matches = []
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
@@ -221,14 +269,12 @@ def main(debug=False, sleep_multiplier=1):
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writerows(trend_data_dict)
         counter += 1
-    wiki_df = pd.DataFrame(wiki_article_matches)
-    wiki_df.to_csv("../../data/wiki_article_matches.csv", index=False)
     logging.info("Done")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape data for keywords")
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-    parser.add_argument("--sleep", type=float, default=1, help="Sleep time multiplier")
+    parser.add_argument("--d", action="store_true", help="Enable debug mode")
+    parser.add_argument("--s", type=float, default=1, help="Sleep time multiplier")
     args = parser.parse_args()
     main(debug=args.debug, sleep_multiplier=args.sleep)
