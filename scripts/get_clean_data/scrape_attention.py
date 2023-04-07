@@ -120,7 +120,7 @@ def get_reddit_data(kw, start_date, end_date):
             date_str = date.strftime('%Y-%m-%d')
             current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'), 'start')
             current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
-            url = f'https://api.pushshift.io/reddit/comment/search?title={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
+            url = f'https://api.pushshift.io/reddit/comment/search?q={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
             response = requests.get(url)
             if response.status_code == 429:
                 raise TooManyRequestsError("Too many requests")
