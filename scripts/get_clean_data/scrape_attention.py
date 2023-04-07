@@ -195,7 +195,7 @@ def main(debug=False, sleep_multiplier=1):
         json_df_filter = json_df_filter.head(2)
 
     # Set the output file path
-    fn = "../../data/trend_data_new10.csv"
+    fn = "../../data/trend_data_new_sources.csv"
     if debug:
         fn = "../../data/trend_data_debug10.csv"
 
