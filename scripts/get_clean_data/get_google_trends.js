@@ -17,6 +17,7 @@ async function fetchInterestOverTime(kw, start_date, end_date, search_type) {
       startTime: new Date(start_date),
       endTime: new Date(end_date),
       geo: 'US',
+      timezone:-300,
       ...(search_type && {property: search_type}),
     });
 
