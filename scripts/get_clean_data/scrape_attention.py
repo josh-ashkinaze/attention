@@ -12,6 +12,7 @@ import datetime as dt
 import json
 import logging
 import os
+from json import JSONDecodeError
 import random
 import time
 
@@ -106,7 +107,7 @@ def get_news_data(kw, start_date, end_date):
 
 @retry(wait=wait_random_exponential(multiplier=0.05, min=1, max=60),
        stop=stop_after_attempt(30),
-       retry=retry_if_exception_type(TooManyRequestsError),
+       retry=retry_if_exception_type(TooManyRequestsError, ValueError, JSONDecodeError),
        before_sleep=before_sleep_log(logging, logging.INFO),
        reraise=False)
 def get_reddit_data(kw, start_date, end_date):
@@ -116,6 +117,7 @@ def get_reddit_data(kw, start_date, end_date):
         date_range = pd.date_range(start_date, end_date, freq='D')
         data_list = []
         for date in date_range:
+            date_str = date.strftime('%Y-%m-%d')
             current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'), 'start')
             current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
             url = f'https://api.pushshift.io/reddit/comment/search?title={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
@@ -124,13 +126,9 @@ def get_reddit_data(kw, start_date, end_date):
                 raise TooManyRequestsError("Too many requests")
             data = response.json()
             total_hits = data['metadata']['es']['hits']['total']['value']
-            data_list.append({'date': date, 'kw': kw, 'value': total_hits})
+            data_list.append({'date': date_str, 'kw': kw, 'value': total_hits})
         df = pd.DataFrame(data_list)
         return df
-    except TooManyRequestsError as e:
-        logging.info(f"Too many requests for {kw}: {e}")
-        return pd.DataFrame(
-            {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
     except Exception as e:
         logging.info(f"Error getting Reddit data for {kw}: {e}")
         return pd.DataFrame(
