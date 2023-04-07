@@ -2,18 +2,17 @@
 Author: Joshua Ashkinaze
 Date: 03/16/2023
 
-Description: This script scrapes Google Trends data for keywords
+Description: This script gets attenion on various platforms for different keywords
 """
-
 import argparse
 import csv
+from pytrends.request import TrendReq
 import datetime
 import datetime as dt
 import json
 import logging
 import os
 import random
-import subprocess
 import time
 
 import numpy as np
@@ -32,6 +31,7 @@ from waybacknews.searchapi import SearchApiClient
 
 
 class TooManyRequestsError(Exception):
+    logging.info("Error, too many requests")
     pass
 
 
@@ -116,8 +116,8 @@ def get_reddit_data(kw, start_date, end_date):
         date_range = pd.date_range(start_date, end_date, freq='D')
         data_list = []
         for date in date_range:
-            current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'))
-            current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'))
+            current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'), 'start')
+            current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
             url = f'https://api.pushshift.io/reddit/comment/search?title={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
             response = requests.get(url)
             if response.status_code == 429:
@@ -136,76 +136,45 @@ def get_reddit_data(kw, start_date, end_date):
         return pd.DataFrame(
             {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
 
-
-def get_google_trends_data(kw, start_date, end_date, search_type, sleep_multiplier=1, sleep_time=(1, 2)):
-    """
-    This function fetches Google Trends data for a given keyword and date range
-
-    Params:
-        kw: Keyword to search for
-        start_date: Start date of the search
-        end_date: End date of the search
-        search_type: Type of search to perform (e.g. 'web', 'news', 'images')
-        sleep_multiplier: Multiplier for the sleep time
-        sleep_time: Tuple of the minimum and maximum time to sleep between requests
-    Returns:
-        Pandas DataFrame of the Google Trends data if successful, otherwise
-        a DataFrame with a single row with the value -1.
-    """
-    sleep_time = random.uniform(sleep_time[0] * sleep_multiplier, sleep_time[1] * sleep_multiplier)
-    logging.info("Sleeping for {}".format(sleep_time))
-    time.sleep(sleep_time)
-    script_path = "get_google_trends.js"
-    # General exception catcher
+def get_google_trends_data(kw, start_date, end_date, search_type="", sleep_multiplier=1):
     try:
-        # If on any machine with node js installed normally
-        try:
-            result = subprocess.run(["node", script_path, kw, start_date, end_date, search_type], capture_output=True,
-                                    text=True)
-        # If on Great Lakes
-        except:
-            result = subprocess.run(
-                ["../../../node-v18.15.0-linux-x64/bin/node", script_path, kw, start_date, end_date, search_type],
-                capture_output=True,
-                text=True)
-
-        # Try to parse response
-        try:
-            if result.returncode == 0:
-                try:
-                    json_data = json.loads(result.stdout)
-                    df = pd.DataFrame(json_data)
-                    df['search_type'] = search_type
-                    logging.info(df.head(1))
-                    return df
-                except Exception as e:
-                    return pd.DataFrame(
-                        {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
-                        index=[0])
-
-            else:
-                print("Error fetching data:", result.stderr)
-                return pd.DataFrame(
-                    {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]}, index=[0])
-        except Exception as e:
-            logging.info("Error fetching data (parsing response) for keyword {}: {}".format(kw, e))
-            return pd.DataFrame(
-                {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
-                index=[0])
+        if search_type == "web":
+          search_type = ""
+        time.sleep(sleep_multiplier)
+        pytrends = TrendReq(hl='en-US',
+                            tz=300,
+                            geo = "US",
+                            retries=10,
+                            backoff_factor=5,
+                            # Note: This is a temporary fix to changes to the Google Trends backend, working as of the
+                            # time this script was run. Credit:
+                            # https://github.com/GeneralMills/pytrends/issues/561#issuecomment-1462358749
+                            requests_args = {'headers': {'Cookie': 'AEC=AUEFqZdI42AmiBCbajQmcjdVL6JsL0_jjuEBNgioIAifo2CdeKZjBkJz8vk; SID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryCkR-UnWLQGUdUuaRJp5E_g.; __Secure-1PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryyUqor8RKBlPSijO5jYTYWQ.; __Secure-3PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryEoN2Mb7Xfg_BKwEcbdmqnw.; HSID=ATj--Nr4zP6RlECcX; SSID=AyjRgRMVts1Z1v_09; APISID=_Q5UAlzMyjjCSfcb/AJ-kLsh6mkIE2BZfk; SAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-1PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-3PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; NID=511=lq3xAB-CQT9jCytVXgT2vcO7nFM9S8tl97lJqPcbT_56hrc_V_aJCCamm-wgHwiB-PnUcrgq8awJBDFQR-iSBB_zvRzTpifdqA9OwZagmKNn5S0bmjv3-HsasR6fybPtcmSngtwitO-hU_1L3yJWZm-nvSuywU7fUge3XupAlilIbx1BTcAnykF4QQynsRQNzoMWTkr-60uyQE4K3PbKTuW9N-stfs14UMUKv3dqEX41cfZ7Amo7; 1P_JAR=2023-04-07-19; SIDCC=AFvIBn9S2jtFpiTP2L9AcdyQZlG03UFdiU-ZxeG40vb0O8EsyuojrKs-7dDHHl5LnBhV3sYBjg; __Secure-1PSIDCC=AFvIBn_1yN2rslv3gVNyJzBbMjsATlE80nlP1xv5WJ5SNo6KwaHys9_zm0TDfMigg3160pZNyw; __Secure-3PSIDCC=AFvIBn_p531rwqZwqHzxZF3EY62bU8VTtlap87jRCemhq14TJYrspbU04zaKHsAYaEgY0JO1UQ'}})
+        pytrends.build_payload([kw], timeframe=f"{start_date} {end_date}", geo='US', gprop=search_type)
+        data = pytrends.interest_over_time()
+        d = data.reset_index()
+        d = d[d.columns[:2]]
+        d['kw'] = kw
+        d.columns = ['date', 'value', 'kw']
+        d = d[['kw', 'date', 'value']]
+        return d
     except Exception as e:
-        logging.info("Error fetching data for keyword {}: {}".format(kw, e))
-        return pd.DataFrame({'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN], 'search_type': [search_type]},
-                            index=[0])
+        logging.info(f"Error getting Google Trends data for {kw} for search type {search_type}: {e}")
+        return pd.DataFrame(
+            {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
 
 
 def main(debug=False, sleep_multiplier=1):
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
-    logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s')
-    random.seed(416)
 
-    with open("../src/creds.json", "r") as json_file:
+    logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s', force=True)
+    logging.info("Started")
+    random.seed(416)
+    print(f"Log file path: {log_file}")
+
+    with open("../../src/creds.json", "r") as json_file:
         creds = json.load(json_file)
     bearer_token = creds["bearer_token"]
 
@@ -245,7 +214,7 @@ def main(debug=False, sleep_multiplier=1):
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
 
-        search_types = ['web', 'search', 'youtube', 'news', 'reddit']
+        search_types = ['web', 'news', 'reddit', 'youtube', 'twitter']
 
         for kw in kws:
             for search_type in search_types:
@@ -254,7 +223,13 @@ def main(debug=False, sleep_multiplier=1):
                     trend_data = get_reddit_data(kw, row['start_date'], row['end_date'])
                 elif search_type == 'news':
                     trend_data = get_news_data(kw, row['start_date'], row['end_date'])
-                else:
+                elif search_type == 'web':
+                    trend_data = get_google_trends_data(kw=kw,
+                                                        start_date=row['start_date'],
+                                                        end_date=row['end_date'],
+                                                        search_type=search_type,
+                                                        sleep_multiplier=sleep_multiplier)
+                elif search_type == 'youtube':
                     trend_data = get_google_trends_data(kw=kw,
                                                         start_date=row['start_date'],
                                                         end_date=row['end_date'],
@@ -275,6 +250,6 @@ def main(debug=False, sleep_multiplier=1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape data for keywords")
     parser.add_argument("--d", action="store_true", help="Enable debug mode")
-    parser.add_argument("--s", type=float, default=1, help="Sleep time multiplier")
+    parser.add_argument("--s", type=float, default=10, help="Sleep time multiplier")
     args = parser.parse_args()
-    main(debug=args.debug, sleep_multiplier=args.sleep)
+    main(debug=args.d, sleep_multiplier=args.s)
