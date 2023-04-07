@@ -60,48 +60,7 @@ def get_news_data(kw, start_date, end_date):
         return pd.DataFrame(
             {'kw': [str(kw)], 'date': [start_date], 'value': [-1]}, index=[0])
 
-
-def get_wiki_data(kw, start_date, end_date):
-    """
-    This function fetches Wikipedia page views data for a given keyword and date range
-
-    Params:
-        kw: Keyword to search for
-        start_date: Start date of the search
-        end_date: End date of the search
-    Returns:
-        Pandas DataFrame of the Wikipedia page views data if successful, otherwise
-        a DataFrame with a single row with the value np.nan.
-    """
-
-    start_date_formatted = datetime.datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%d")
-    end_date_formatted = datetime.datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%d")
-
-    # First let's get the most relevant Wikipedia article for the keyword
-    try:
-        search_results = wikipedia.search(kw)
-        if not search_results:
-            return  pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
-        else:
-            most_relevant_article = search_results[0]
-    except Exception as e:
-        logging.error(f"Error getting Wikipedia article for {kw}: {e}")
-        return pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
-
-    # Now let's get the page views data for the most relevant article
-    try:
-        pageview_data = pageviewapi.per_article('en.wikipedia', most_relevant_article, start_date_formatted, end_date_formatted,
-                                         access='all-access', agent='all-agents', granularity='daily')
-        dates = [datetime.datetime.strptime(item['timestamp'][:8], "%Y%m%d").strftime("%Y-%m-%d") for item in
-                 pageview_data['items']]
-        values = [item['views'] for item in pageview_data['items']]
-        df = pd.DataFrame({'date': dates, 'value': values, 'search_type': 'wikipedia'})
-        df['kw'] = kw
-        return df, most_relevant_article
-    except Exception as e:
-        logging.error(f"Error getting Wikipedia article for {kw}: {e}")
-        return pd.DataFrame({'kw': kw, 'date': start_date, 'value': np.NaN, 'search_type': 'wikipedia'}), -1
-@retry(wait=wait_random_exponential(multiplier=1, min=1, max=60),
+@retry(wait=wait_random_exponential(multiplier=0.05, min=1, max=60),
        stop=stop_after_attempt(30),
        retry=retry_if_exception_type(TooManyRequestsError),
        before_sleep=before_sleep_log(logging, logging.INFO),
@@ -119,7 +78,6 @@ def get_reddit_data(kw, start_date, end_date):
         for date in date_range:
             current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'))
             current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'))
-            time.sleep(0.05)
             url = f'https://api.pushshift.io/reddit/comment/search?title={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
             response = requests.get(url)
             if response.status_code == 429:
@@ -238,8 +196,7 @@ def main(debug=False, sleep_multiplier=1):
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
-        # REMOVE WIKI FOR NOW
-        # search_types = ['web', 'search', 'youtube', 'wiki', 'news', 'reddit']
+
         search_types = ['web', 'search', 'youtube', 'news', 'reddit']
 
         for kw in kws:
@@ -247,9 +204,6 @@ def main(debug=False, sleep_multiplier=1):
                 logging.info("Processing keyword: {} for search type {}".format(kw, search_type))
                 if search_type == 'reddit':
                     trend_data = get_reddit_data(kw, row['start_date'], row['end_date'])
-                elif search_type == 'wiki':
-                    trend_data, wiki_kw  = get_wiki_data(kw, row['start_date'], row['end_date'])
-                    wiki_article_matches.append({'kw': kw, 'wiki_kw': wiki_kw})
                 elif search_type == 'news':
                     trend_data = get_news_data(kw, row['start_date'], row['end_date'])
                 else:
