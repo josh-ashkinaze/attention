@@ -25,6 +25,7 @@ from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
+    wait_exponential,
     before_sleep_log,
     retry_if_exception_type
 )
@@ -105,34 +106,45 @@ def get_news_data(kw, start_date, end_date):
             {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
 
 
-@retry(wait=wait_random_exponential(multiplier=0.05, min=1, max=60),
-       stop=stop_after_attempt(30),
-       retry=retry_if_exception_type((TooManyRequestsError, ValueError, JSONDecodeError)),
-       before_sleep=before_sleep_log(logging, logging.INFO),
-       reraise=False)
 def get_reddit_data(kw, start_date, end_date):
     try:
-        start_timestamp = date_to_unix_timestamp(start_date, "start")
-        end_timestamp = date_to_unix_timestamp(end_date, "end")
         date_range = pd.date_range(start_date, end_date, freq='D')
         data_list = []
         for date in date_range:
-            date_str = date.strftime('%Y-%m-%d')
-            current_start = date_to_unix_timestamp(date.strftime('%Y-%m-%d'), 'start')
-            current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
-            url = f'https://api.pushshift.io/reddit/comment/search?q={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
-            response = requests.get(url)
-            if response.status_code == 429:
-                raise TooManyRequestsError("Too many requests")
-            data = response.json()
-            total_hits = data['metadata']['es']['hits']['total']['value']
-            data_list.append({'date': date_str, 'kw': kw, 'value': total_hits})
+            data_for_day = fetch_daily_reddit_data(kw, date)
+            data_list.append(data_for_day)
         df = pd.DataFrame(data_list)
+        logging.info("Successfully got Reddit data for {}".format(kw))
         return df
+
     except Exception as e:
         logging.info(f"Error getting Reddit data for {kw}: {e}")
         return pd.DataFrame(
             {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
+
+@retry(wait=wait_exponential(multiplier=1, min=60, max=3600),
+       stop=stop_after_attempt(30),
+       retry=(retry_if_exception_type((TooManyRequestsError))),
+       before_sleep=before_sleep_log(logging, logging.INFO))
+def fetch_daily_reddit_data(kw, date):
+    time.sleep(10)
+    date_str = date.strftime('%Y-%m-%d')
+    current_start = date_to_unix_timestamp(date_str, 'start')
+    current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
+    url = f'https://api.pushshift.io/reddit/comment/search?q={kw}&since={current_start}&until={current_end}&limit=0&track_total_hits=true'
+    try:
+        response = requests.get(url)
+        if response.status_code == 429:
+            logging.info("Retrying due to too many requests")
+            raise TooManyRequestsError("Too many requests")
+
+        data = response.json()
+        total_hits = data['metadata']['es']['hits']['total']['value']
+        logging.info(data)
+        return {"date":date, "value":total_hits, "kw":kw}
+    except Exception as e:
+        logging.info(f"Error getting Reddit data for {kw} for date {date}: {e}")
+        return {"date":date, "value":np.NaN, "kw":kw}
 
 def get_google_trends_data(kw, start_date, end_date, search_type="", sleep_multiplier=1):
     try:
@@ -155,6 +167,7 @@ def get_google_trends_data(kw, start_date, end_date, search_type="", sleep_multi
         d['kw'] = kw
         d.columns = ['date', 'value', 'kw']
         d = d[['kw', 'date', 'value']]
+        logging.info("Succesfully pulled Google Trends data")
         return d
     except Exception as e:
         logging.info(f"Error getting Google Trends data for {kw} for search type {search_type}: {e}")
@@ -205,8 +218,11 @@ def main(debug=False, sleep_multiplier=1):
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
-    # Loop through each event, and get web, search, and youtube data for each keyword in
-    # the associated event
+
+    # foreach event
+    #   foreach keyword,
+    #       foreach source:
+    #           pull daily attention levels
     counter = 0
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
