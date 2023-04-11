@@ -107,7 +107,7 @@ def get_news_data(kw, start_date, end_date):
 
 @retry(wait=wait_random_exponential(multiplier=0.05, min=1, max=60),
        stop=stop_after_attempt(30),
-       retry=retry_if_exception_type(TooManyRequestsError, ValueError, JSONDecodeError),
+       retry=retry_if_exception_type((TooManyRequestsError, ValueError, JSONDecodeError)),
        before_sleep=before_sleep_log(logging, logging.INFO),
        reraise=False)
 def get_reddit_data(kw, start_date, end_date):
@@ -167,7 +167,7 @@ def main(debug=False, sleep_multiplier=1):
 
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
 
-    logging.basicConfig(filename=log_file, level=logging.INFO, filemode='w', format='%(asctime)s %(message)s', force=True)
+    logging.basicConfig(filename=log_file, level=logging.DEBUG, filemode='w', format='%(asctime)s %(message)s', force=True)
     logging.info("Started")
     random.seed(416)
     print(f"Log file path: {log_file}")
