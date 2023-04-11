@@ -127,7 +127,7 @@ def get_reddit_data(kw, start_date, end_date):
        retry=(retry_if_exception_type((TooManyRequestsError))),
        before_sleep=before_sleep_log(logging, logging.INFO))
 def fetch_daily_reddit_data(kw, date):
-    time.sleep(10)
+    time.sleep(3)
     date_str = date.strftime('%Y-%m-%d')
     current_start = date_to_unix_timestamp(date_str, 'start')
     current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
