@@ -6,13 +6,11 @@ Description: This script gets attenion on various platforms for different keywor
 """
 import argparse
 import csv
-from pytrends.request import TrendReq
 import datetime
 import datetime as dt
 import json
 import logging
 import os
-from json import JSONDecodeError
 import random
 import time
 
@@ -21,10 +19,10 @@ import pandas as pd
 import pytz
 import requests
 import tweepy
+from pytrends.request import TrendReq
 from tenacity import (
     retry,
     stop_after_attempt,
-    wait_random_exponential,
     wait_exponential,
     before_sleep_log,
     retry_if_exception_type
@@ -39,7 +37,6 @@ class TooManyRequestsError(Exception):
 
 def date_to_unix_timestamp(date_string, start_or_end):
     dt = datetime.datetime.strptime(date_string, '%Y-%m-%d')
-
     if start_or_end == 'start':
         dt = dt.replace(hour=0, minute=0, second=0)
     elif start_or_end == 'end':
@@ -69,6 +66,7 @@ def get_twitter_data(kw, start_date, end_date, bearer_token):
         for x in counts.data:
             row = {'day': x['start'].split("T")[0], 'kw': kw, 'value': x['tweet_count']}
             data.append(row)
+            logging.info(f"Successfully got Twitter Trends data for {kw}")
     except Exception as e:
         return pd.DataFrame(
             {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
@@ -98,7 +96,7 @@ def get_news_data(kw, start_date, end_date):
                 'date': entry['date'].strftime("%Y-%m-%d"),
                 'value': entry['count']
             })
-
+        logging.info(f"Successfully got news data for {kw}")
         return pd.DataFrame(result)
     except Exception as e:
         logging.error(f"Error getting news attention for {kw}: {e}")
@@ -107,27 +105,27 @@ def get_news_data(kw, start_date, end_date):
 
 
 def get_reddit_data(kw, start_date, end_date):
-    try:
-        date_range = pd.date_range(start_date, end_date, freq='D')
-        data_list = []
-        for date in date_range:
-            data_for_day = fetch_daily_reddit_data(kw, date)
-            data_list.append(data_for_day)
-        df = pd.DataFrame(data_list)
-        logging.info("Successfully got Reddit data for {}".format(kw))
-        return df
+    date_range = pd.date_range(start_date, end_date, freq='D')
+    data_list = []
+    for date in date_range:
+        data_for_day = fetch_daily_reddit_data(kw, date)
+        data_list.append(data_for_day)
+    df = pd.DataFrame(data_list)
+    logging.info("Successfully got Reddit data for {}".format(kw))
+    return df
 
-    except Exception as e:
-        logging.info(f"Error getting Reddit data for {kw}: {e}")
-        return pd.DataFrame(
-            {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
 
 @retry(wait=wait_exponential(multiplier=1, min=60, max=3600),
        stop=stop_after_attempt(30),
        retry=(retry_if_exception_type((TooManyRequestsError))),
        before_sleep=before_sleep_log(logging, logging.INFO))
 def fetch_daily_reddit_data(kw, date):
-    time.sleep(3)
+    """This is a helper function for `get_reddit_data` that fetches the data for a single day.
+
+    The logic of breaking the two out is that Pushift often throws 429 (too many requests) errors, so we want to only retry
+    the request for a single day, not the entire date range.
+    """
+    time.sleep(1)
     date_str = date.strftime('%Y-%m-%d')
     current_start = date_to_unix_timestamp(date_str, 'start')
     current_end = date_to_unix_timestamp((date + pd.Timedelta(days=1)).strftime('%Y-%m-%d'), 'end')
@@ -141,25 +139,27 @@ def fetch_daily_reddit_data(kw, date):
         data = response.json()
         total_hits = data['metadata']['es']['hits']['total']['value']
         logging.info(data)
-        return {"date":date, "value":total_hits, "kw":kw}
+        return {"date": date, "value": total_hits, "kw": kw}
     except Exception as e:
         logging.info(f"Error getting Reddit data for {kw} for date {date}: {e}")
-        return {"date":date, "value":np.NaN, "kw":kw}
+        return {"date": date, "value": np.NaN, "kw": kw}
+
 
 def get_google_trends_data(kw, start_date, end_date, search_type="", sleep_multiplier=1):
     try:
         if search_type == "web":
-          search_type = ""
+            search_type = ""
         time.sleep(sleep_multiplier)
         pytrends = TrendReq(hl='en-US',
                             tz=300,
-                            geo = "US",
+                            geo="US",
                             retries=10,
                             backoff_factor=5,
                             # Note: This is a temporary fix to changes to the Google Trends backend, working as of the
                             # time this script was run. Credit:
                             # https://github.com/GeneralMills/pytrends/issues/561#issuecomment-1462358749
-                            requests_args = {'headers': {'Cookie': 'AEC=AUEFqZdI42AmiBCbajQmcjdVL6JsL0_jjuEBNgioIAifo2CdeKZjBkJz8vk; SID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryCkR-UnWLQGUdUuaRJp5E_g.; __Secure-1PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryyUqor8RKBlPSijO5jYTYWQ.; __Secure-3PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryEoN2Mb7Xfg_BKwEcbdmqnw.; HSID=ATj--Nr4zP6RlECcX; SSID=AyjRgRMVts1Z1v_09; APISID=_Q5UAlzMyjjCSfcb/AJ-kLsh6mkIE2BZfk; SAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-1PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-3PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; NID=511=lq3xAB-CQT9jCytVXgT2vcO7nFM9S8tl97lJqPcbT_56hrc_V_aJCCamm-wgHwiB-PnUcrgq8awJBDFQR-iSBB_zvRzTpifdqA9OwZagmKNn5S0bmjv3-HsasR6fybPtcmSngtwitO-hU_1L3yJWZm-nvSuywU7fUge3XupAlilIbx1BTcAnykF4QQynsRQNzoMWTkr-60uyQE4K3PbKTuW9N-stfs14UMUKv3dqEX41cfZ7Amo7; 1P_JAR=2023-04-07-19; SIDCC=AFvIBn9S2jtFpiTP2L9AcdyQZlG03UFdiU-ZxeG40vb0O8EsyuojrKs-7dDHHl5LnBhV3sYBjg; __Secure-1PSIDCC=AFvIBn_1yN2rslv3gVNyJzBbMjsATlE80nlP1xv5WJ5SNo6KwaHys9_zm0TDfMigg3160pZNyw; __Secure-3PSIDCC=AFvIBn_p531rwqZwqHzxZF3EY62bU8VTtlap87jRCemhq14TJYrspbU04zaKHsAYaEgY0JO1UQ'}})
+                            requests_args={'headers': {
+                                'Cookie': 'AEC=AUEFqZdI42AmiBCbajQmcjdVL6JsL0_jjuEBNgioIAifo2CdeKZjBkJz8vk; SID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryCkR-UnWLQGUdUuaRJp5E_g.; __Secure-1PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryyUqor8RKBlPSijO5jYTYWQ.; __Secure-3PSID=VAg-9nNMB1RPS2j9KMTAU872D_QGUrXIV4GuoK2px7btIyryEoN2Mb7Xfg_BKwEcbdmqnw.; HSID=ATj--Nr4zP6RlECcX; SSID=AyjRgRMVts1Z1v_09; APISID=_Q5UAlzMyjjCSfcb/AJ-kLsh6mkIE2BZfk; SAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-1PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; __Secure-3PAPISID=bM_ApyCj3JsatDpU/A1vQT7swDqYsb3ROc; NID=511=lq3xAB-CQT9jCytVXgT2vcO7nFM9S8tl97lJqPcbT_56hrc_V_aJCCamm-wgHwiB-PnUcrgq8awJBDFQR-iSBB_zvRzTpifdqA9OwZagmKNn5S0bmjv3-HsasR6fybPtcmSngtwitO-hU_1L3yJWZm-nvSuywU7fUge3XupAlilIbx1BTcAnykF4QQynsRQNzoMWTkr-60uyQE4K3PbKTuW9N-stfs14UMUKv3dqEX41cfZ7Amo7; 1P_JAR=2023-04-07-19; SIDCC=AFvIBn9S2jtFpiTP2L9AcdyQZlG03UFdiU-ZxeG40vb0O8EsyuojrKs-7dDHHl5LnBhV3sYBjg; __Secure-1PSIDCC=AFvIBn_1yN2rslv3gVNyJzBbMjsATlE80nlP1xv5WJ5SNo6KwaHys9_zm0TDfMigg3160pZNyw; __Secure-3PSIDCC=AFvIBn_p531rwqZwqHzxZF3EY62bU8VTtlap87jRCemhq14TJYrspbU04zaKHsAYaEgY0JO1UQ'}})
         pytrends.build_payload([kw], timeframe=f"{start_date} {end_date}", geo='US', gprop=search_type)
         data = pytrends.interest_over_time()
         d = data.reset_index()
@@ -167,7 +167,8 @@ def get_google_trends_data(kw, start_date, end_date, search_type="", sleep_multi
         d['kw'] = kw
         d.columns = ['date', 'value', 'kw']
         d = d[['kw', 'date', 'value']]
-        logging.info("Succesfully pulled Google Trends data")
+        logging.info(f"Successfully got Google Trends data for {kw} for search type {search_type}")
+
         return d
     except Exception as e:
         logging.info(f"Error getting Google Trends data for {kw} for search type {search_type}: {e}")
@@ -180,7 +181,8 @@ def main(debug=False, sleep_multiplier=1):
 
     log_file = os.path.splitext(os.path.basename(__file__))[0] + '.log'
 
-    logging.basicConfig(filename=log_file, level=logging.DEBUG, filemode='w', format='%(asctime)s %(message)s', force=True)
+    logging.basicConfig(filename=log_file, level=logging.DEBUG, filemode='w', format='%(asctime)s %(message)s',
+                        force=True)
     logging.info("Started")
     random.seed(416)
     print(f"Log file path: {log_file}")
@@ -217,7 +219,6 @@ def main(debug=False, sleep_multiplier=1):
     with open(fn, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-
 
     # foreach event
     #   foreach keyword,
