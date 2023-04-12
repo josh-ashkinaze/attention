@@ -224,12 +224,14 @@ def main(debug=False, sleep_multiplier=1):
     #   foreach keyword,
     #       foreach source:
     #           pull daily attention levels
+    search_types = ['web', 'youtube', 'twitter']
+    logging.info("Logging for search types {}".format(search_types))
     counter = 0
     for index, row in json_df_filter.iterrows():
         logging.info("Processing event {} of {}: {}".format(counter, len(json_df_filter), row['event']))
         kws = row['keywords']
 
-        search_types = ['web', 'news', 'reddit', 'youtube', 'twitter']
+        # search_types = ['web', 'news', 'reddit', 'youtube', 'twitter']
 
         for kw in kws:
             for search_type in search_types:
@@ -250,6 +252,9 @@ def main(debug=False, sleep_multiplier=1):
                                                         end_date=row['end_date'],
                                                         search_type=search_type,
                                                         sleep_multiplier=sleep_multiplier)
+                elif search_type == 'twitter':
+                    trend_data = get_twitter_data(kw=kw, start_date=row['start_date'],
+                                                  end_date=row['end_date'], bearer_token=bearer_token)
                 trend_data['event'] = row['index']
                 trend_data['search_type'] = search_type
 
