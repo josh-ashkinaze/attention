@@ -64,9 +64,9 @@ def get_twitter_data(kw, start_date, end_date, bearer_token):
         counts = client.get_all_tweets_count(query=kw, start_time=f'{start_date}T00:00:00-05:00',
                                              end_time=f'{end_date}T11:59:59-05:00', granularity='day')
         for x in counts.data:
-            row = {'day': x['start'].split("T")[0], 'kw': kw, 'value': x['tweet_count']}
+            row = {'date': x['start'].split("T")[0], 'kw': kw, 'value': x['tweet_count']}
             data.append(row)
-            logging.info(f"Successfully got Twitter Trends data for {kw}")
+        logging.info(f"Successfully got Twitter data for {kw}")
     except Exception as e:
         return pd.DataFrame(
             {'kw': [str(kw)], 'date': [start_date], 'value': [np.NaN]}, index=[0])
