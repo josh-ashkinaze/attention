@@ -56,15 +56,17 @@ df$log_val <- log(df$value+1)
 
 ```
 
-# Modeling
+# Modeling Linear Version
 
-```{r models, echo=TRUE, display=TRUE}
+```{r mixed_linar, echo=TRUE, display=TRUE}
 
 ##############################################
 # RANDOM FX VERSION
 ##############################################
 # Make mixed model 
-model <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event/kw), data = df)
+model <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event), data = df)
+
+
 
 # Look at contrasts: 
 # For rumors, is attention higher for google news and YT vs web?
@@ -100,9 +102,59 @@ fem_p_values <- fixed_ses$coefficients[, 4]
 stargazer(fem, model, type='text', se=list(fem_robust_se, NULL), p=list(fem_p_values, NULL))
 ```
 
-```{r}
+# Modeling - Negative Binoial 
+## Make Model
+```{r model}
+library(glmmTMB)
+df$year2 <- scale(df$year)
+df$start_delta2 <- scale(df$start_delta)
+df$month2 <- scale(df$month)
+model3 <- glmmTMB(value ~ start_delta2 + year2 + month2 + period*search_type, data = df, family=nbinom1)
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to
-prevent printing of the R code that generated the plot.
+## Contrasts
+
+
+```{r negbinom}
+# Interaction T1
+em <- emmeans(model3, ~ period*search_type)
+em_df <- as.data.frame(em)
+pairs <- pairs(em, by = "search_type", type = "identity", rev = TRUE, adjust="tukey")
+```
+
+
+```{r compute shock contrasts}
+# Interaction T2
+em3 <- emmeans(model3, ~ period | search_type)
+
+# Print (rumor - control) pairwise contrasts
+rumor_minus_control <- contrast(em3, list(rumor_minus_control = c(-1, 0, 1)), adjust = "none", type='response')
+pairs_rumor_contrasts <- pairs(rumor_minus_control, simple = "search_type", adjust = "tukey", rev=TRUE)
+print(pairs_rumor_contrasts)
+
+# Print (announce - control) pairwise contrasts
+announce_minus_control <- contrast(em3, list(announce_minus_control = c(-1, 1, 0)), adjust = "none", type='response')
+pairs_announce_contrasts <- pairs(announce_minus_control, simple = "search_type", adjust = "tukey", rev=FALSE)
+print(pairs_announce_contrasts)
+```
+
+
+```{r plot shock contrasts}
+announce_contrast_df <- data.frame(confint(announce_minus_control))
+rumor_contrast_df <- data.frame(confint(rumor_minus_control))
+contrast_df <- rbind(announce_contrast_df, rumor_contrast_df)
+
+contrast_df <- contrast_df %>%
+  mutate(contrast = recode(contrast,
+                           "announce_minus_control" = "Announcement Attention\n÷\nControl Attention",
+                           "rumor_minus_control" = "Rumor Attention\n÷\nControl Attention"))
+
+ggplot(data=contrast_df, aes(x=contrast, y=ratio, fill=search_type, ymin=lower.CL, ymax=upper.CL)) + 
+  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
+  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
+  labs(x="Shock Type", y="Ratio of Attention", fill="Search type") + theme_few() + ggtitle("Platform-level differences in attention during\nrumor and announcement shocks")
+
+
+```
+
