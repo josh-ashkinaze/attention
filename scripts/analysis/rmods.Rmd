@@ -1,10 +1,8 @@
 ---
-title: "panel"
+title: "Models"
 author: "Joshua Ashkinaze"
 date: "2023-03-28"
-output:
-  pdf_document: default
-  html_document: default
+output: github_document
 ---
 
 # Load packages
@@ -124,175 +122,14 @@ ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lo
 models <- list(model.crossed, model.nested, fem)
 model_names <- c("Crossed", 
                  "Nested", 
-                 "Fixed Effect Model (Newey West Clustered Errors)")
+                 "Fixed Effect Model\n(Newey West Clustered Errors)")
 
 stargazer(models, 
           dep.var.labels = c("Normalized Attention"),
           model.names = TRUE,
           column.labels = model_names, 
-          type = 'text', 
+          type = 'latex', 
           se = list(NULL, NULL, fem_robust_se), 
           p = list(NULL, NULL, fem_p_values))
 
 ```
-# Modeling/ RFX experiments
-
-## OLS Crossed
-```{r}
-model <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event) + (1|kw), data = df)
-em <- emmeans(model, ~ period*search_type)
-em_df <- as.data.frame(em)
-pairs <- pairs(em, by = "period", type = "response", rev = TRUE)
-print(pairs)
-
-# Let's graph the Search Type X Period emmeans
-em_df$lower <- em_df$asymp.LCL
-em_df$upper <- em_df$asymp.UCL
-ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Attention (0-100)", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Data from Google Trends.\nPoint estimates and 95% CIs are marginal means from mixed effects model.") + theme_nice() 
-```
-## NB Crossed
-
-```{r}
-model3 <- glmmTMB(value ~ start_delta + year + month + period*search_type + (1|event) + (1|kw), data = df, family=nbinom1)
-em <- emmeans(model3, ~ period*search_type)
-em_df <- as.data.frame(em)
-pairs <- pairs(em, by = "search_type", type = "identity", rev = TRUE, adjust="tukey")
-print(pairs)
-# Let's graph the Search Type X Period emmeans
-em_df$lower <- em_df$lower.CL
-em_df$upper <- em_df$upper.CL
-ggplot(data=data.frame(em_df), aes(x=period, y=response, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Attention", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Data from Google Trends.\nPoint estimates and 95% CIs are marginal means from negative binomial mixed effects model.") + theme_nice() + scale_fill_manual(values = hex_color_list)
-```
-
-
-# Modeling - Negative Binoial 
-## Make Model
-```{r model}
-library(glmmTMB)
-
-model3 <- glmmTMB(value ~ start_delta2 + year2 + month2 + period*search_type + (1|event) + (1|kw), data = df, family=nbinom1)
-em <- emmeans(model3, ~ period*search_type)
-em_df <- as.data.frame(em)
-pairs <- pairs(em, by = "search_type", type = "identity", rev = TRUE, adjust="tukey")
-
-```
-
-## Contrasts
-
-
-```{r negbinom}
-# Interaction T1
-em <- emmeans(model3, ~ period*search_type)
-em_df <- as.data.frame(em)
-pairs <- pairs(em, by = "search_type", type = "identity", rev = TRUE, adjust="tukey")
-```
-
-
-```{r compute shock contrasts}
-# Interaction T2
-em3 <- emmeans(model3, ~ period | search_type)
-
-# Print (rumor - control) pairwise contrasts
-rumor_minus_control <- contrast(em3, list(rumor_minus_control = c(-1, 0, 1)), adjust = "none", type='response')
-pairs_rumor_contrasts <- pairs(rumor_minus_control, simple = "search_type", adjust = "none", rev=TRUE)
-print(pairs_rumor_contrasts)
-
-# Print (announce - control) pairwise contrasts
-announce_minus_control <- contrast(em3, list(announce_minus_control = c(-1, 1, 0)), adjust = "none", type='response')
-pairs_announce_contrasts <- pairs(announce_minus_control, simple = "search_type", adjust = "none", rev=FALSE)
-print(pairs_announce_contrasts)
-```
-
-
-```{r plot shock contrasts}
-announce_contrast_df <- data.frame(confint(announce_minus_control))
-rumor_contrast_df <- data.frame(confint(rumor_minus_control))
-contrast_df <- rbind(announce_contrast_df, rumor_contrast_df)
-
-contrast_df <- contrast_df %>%
-  mutate(contrast = recode(contrast,
-                           "announce_minus_control" = "Announcement Attention\n÷\nControl Attention",
-                           "rumor_minus_control" = "Rumor Attention\n÷\nControl Attention"))
-
-ggplot(data=contrast_df, aes(x=contrast, y=ratio, fill=search_type, ymin=lower.CL, ymax=upper.CL)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Shock Type", y="Ratio of Attention", fill="Search type") + theme_nice() + ggtitle("Platform-level differences in attention during\nrumor and announcement shocks")
-
-
-```
-# Sum across key words
-
-## Mixed model
-```{r}
-
-hex_color_list = c(
-    "#826AED",  # Medium-bright purple
-    "#1B998B",  # Medium-dark teal
-    "#D41976",  # Strong pink
-    "#81D6E3",  # Bright turquoise blue
-    "#DE1A1A",  # Bright red
-    "#F2D398",  # Soft, warm beige
-    "#136F63",  # Dark green with a hint of blue
-    "#F45B69",  # Vibrant pinkish-red
-    "#EFAAC4",  # Soft, muted pink
-    "#342E37",  # Dark grayish-purple
-    "#FBC02D",  # Medium-bright golden yellow
-    "#3A3042",  # Dark grayish-purple
-    "#2C3531",  # Dark charcoal gray with a green undertone
-    "#E87461",  # Medium-bright orange
-    "#1C7293"   # Medium-dark blue
-)
-df$month <- as.factor(df$month)
-df.agg <- aggregate(value ~ date + start_delta + year + month + period + search_type + event, data=df, FUN="mean")
-model.agg <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event), data = df.agg)
-em <- emmeans(model.agg, ~ period*search_type)
-em_df <- as.data.frame(em)
-pairs <- pairs(em, by = "period", type = "response", rev = TRUE)
-print(pairs)
-
-# Let's graph the Search Type X Period emmeans
-em_df$lower <- em_df$asymp.LCL
-em_df$upper <- em_df$asymp.UCL
-ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Daily Search Volume", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Time series search data from Google Trends for 26 U.S political events that had both\na rumor and official announcement phase.\nPoint estimates and 95% CIs are marginal means from mixed effects model.") + theme_nice() + scale_fill_manual(values = hex_color_list)
-```
-```{r byevent}
-em <- emmeans(model.agg, ~ month*period)
-
-
-```
-
-## NB
-```{r}
-df.agg <- aggregate(value ~ date + start_delta + year + month + period + search_type + event, data=df, FUN="sum")
-
-df.agg$year2 <- scale(df.agg$year)
-df.agg$start_delta2 <- scale(df.agg$start_delta)
-
-df$year2 <- scale(df$year)
-df$start_delta2 <- scale(df$start_delta)
-
-model.agg.nb <- glmmTMB(value ~ start_delta2 + year2 + month + period*search_type + (1|event/kw), data = df, family=nbinom1)
-em.nb <- emmeans(model.agg.nb, ~ period*search_type, type='response')
-em_df <- as.data.frame(em.nb)
-pairs <- pairs(em.nb, by = "period", type = "response", rev = TRUE)
-print(pairs)
-
-# Let's graph the Search Type X Period emmeans
-em_df$lower <- em_df$lower.CL
-em_df$upper <- em_df$upper.CL
-ggplot(data=data.frame(em_df), aes(x=period, y=response, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9), color="black") +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Attention", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Data from Google Trends.\nPoint estimates and 95% CIs are marginal means from negative binomial mixed effects model.") + theme_nice() + scale_fill_manual(values = hex_color_list)
-```
-
