@@ -7,7 +7,7 @@ output: github_document
 
 # Load packages
 
-```{r setup, include=FALSE, echo=TRUE}
+```{r setup, display=TRUE, echo=TRUE}
 library(emmeans)
 library(dplyr)
 library(plm)
@@ -19,6 +19,7 @@ library(stargazer)
 library(lubridate)
 library(ggthemes)
 library(lme4)
+library(forcats)
 library(ggplot2)
 
 # emm_options(lmerTest.limit = 17000)
@@ -42,14 +43,17 @@ hex_color_list = c(
     "#E87461",  # Medium-bright orange
     "#1C7293"   # Medium-dark blue
 )
+
+relabel_func <- function(x) {
+  x %>% 
+    str_replace_all("_", " ") %>%
+    tools::toTitleCase()
+}
 ```
 
 ## Load Data
 
-```{r load, echo=TRUE}
-##############################################
-# LOAD DATA
-##############################################
+```{r load, display=TRUE, echo=FALSE}
 # read in data
 df <- read_csv("https://raw.githubusercontent.com/josh-ashkinaze/attention/main/data/trend_merged_data_modeling.csv")
 df$year <- year(df$date)
@@ -75,30 +79,29 @@ df$log_val <- log(df$value+1)
 
 # Modeling
 
-Note: Point estimates are the same between
+* Point estimates are nearly identical between fixed efffects model with Newey West errors and nested rfx, so that's good
+* Crossed rfx don't converge so we won't use that
 
-```{r mixed_linar, echo=TRUE, display=TRUE}
-
-##############################################
-# RANDOM FX 
-##############################################
+## Random Effects models
+```{r rfx, echo=TRUE, display=TRUE}
 # Make mixed model 
 model.crossed <- lmer(value ~ start_delta + year + month + period*search_type + (1 | kw) + (1|event), data = df)
 model.nested <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event/kw), data = df)
+```
 
-##############################################
-# PANEL MODEL VERSION
-##############################################
+## Panel Model 
+```{r panel, echo=TRUE, display=TRUE}
 # Fit the fixed effects model and then get newey west standard errors
 fem <- plm(value ~ period * search_type, data = df, model = "within", index = c("kwe", "date", "search_type"))
 fixed_ses <- summary(fem, vcov = vcovNW)
 fem_robust_se <- fixed_ses$coefficients[, 2]
 fem_p_values <- fixed_ses$coefficients[, 4]
+```
 
+## Look at contrasts and graph emmeans
 
-##############################################
-# LOOK AT/PLOT CONTRASTS
-##############################################
+### Contrasts
+```{r make_contrasts, echo=TRUE, display=TRUE}
 # Look at contrasts: 
 # For rumors, is attention higher for google news and YT vs web?
 # For announcements, is attention higher for web vs google news and YT?
@@ -106,30 +109,58 @@ em <- emmeans(model.nested, ~ period*search_type)
 em_df <- as.data.frame(em)
 pairs <- pairs(em, by = "period", type = "response", rev = TRUE)
 print(pairs)
+```
 
+### Graph
+```{r make_graph, echo=TRUE, display=TRUE}
 # Let's graph the Search Type X Period emmeans
 em_df$lower <- em_df$asymp.LCL
 em_df$upper <- em_df$asymp.UCL
-ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9)) +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Attention (0-100)", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Data from Google Trends.\nPoint estimates and 95% CIs are marginal means from mixed effects model.") + theme_nice() + scale_fill_manual(values = hex_color_list)
+g <- ggplot(
+  data = data.frame(em_df),
+  aes(
+    x = fct_relabel(period, .fun = relabel_func),
+    y = emmean,
+    fill = fct_relabel(search_type, .fun = relabel_func),
+    ymin = lower,
+    ymax = upper
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = position_dodge(width = 0.9),
+    color = "black"
+  ) +
+  geom_errorbar(position = position_dodge(width = 0.9), width = 0.2) +
+  labs(
+    x = "Period",
+    y = "Normalized Daily Search Volume",
+    fill = "Search type",
+    title = "People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.",
+    subtitle = paste(
+      "Time series keyword search data for 26 U.S political events that had both\na rumor and official announcement phase. (N =",
+      nrow(df),
+      " observations)\n\nPoint estimates and 95% CIs are estimated marginal means from mixed effects model."
+    )
+  ) +
+  theme_nice() + scale_fill_manual(values = hex_color_list)
+g
+ggsave("model_results.png", dpi = 300)
 
+```
 
-##############################################
-# DISPLAY MODELS
-##############################################
-models <- list(model.crossed, model.nested, fem)
-model_names <- c("Crossed", 
-                 "Nested", 
-                 "Fixed Effect Model\n(Newey West Clustered Errors)")
+## Display models 
+```{r echo=TRUE, display=TRUE}
+models <- list(model.nested, fem)
+model_names <- c("Nested Random Effects Model", 
+                 "Fixed Effect Model")
 
-stargazer(models, 
+s <- stargazer(models, 
           dep.var.labels = c("Normalized Attention"),
           model.names = TRUE,
           column.labels = model_names, 
-          type = 'latex', 
-          se = list(NULL, NULL, fem_robust_se), 
-          p = list(NULL, NULL, fem_p_values))
+          type = 'text', 
+          se = list(NULL, fem_robust_se), 
+          p = list(NULL, fem_p_values))
 
 ```

@@ -5,15 +5,100 @@ Joshua Ashkinaze
 
 # Load packages
 
-## Load Data
+``` r
+library(emmeans)
+library(dplyr)
+```
+
+    ## 
+    ## Attaching package: 'dplyr'
+
+    ## The following objects are masked from 'package:stats':
+    ## 
+    ##     filter, lag
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     intersect, setdiff, setequal, union
 
 ``` r
-##############################################
-# LOAD DATA
-##############################################
-# read in data
-df <- read_csv("https://raw.githubusercontent.com/josh-ashkinaze/attention/main/data/trend_merged_data_modeling.csv")
+library(plm)
 ```
+
+    ## 
+    ## Attaching package: 'plm'
+
+    ## The following objects are masked from 'package:dplyr':
+    ## 
+    ##     between, lag, lead
+
+``` r
+library(sandwich)
+library(stringr)
+library(jtools)
+library(readr)
+library(stargazer)
+```
+
+    ## 
+    ## Please cite as:
+
+    ##  Hlavac, Marek (2022). stargazer: Well-Formatted Regression and Summary Statistics Tables.
+
+    ##  R package version 5.2.3. https://CRAN.R-project.org/package=stargazer
+
+``` r
+library(lubridate)
+```
+
+    ## 
+    ## Attaching package: 'lubridate'
+
+    ## The following objects are masked from 'package:base':
+    ## 
+    ##     date, intersect, setdiff, union
+
+``` r
+library(ggthemes)
+library(lme4)
+```
+
+    ## Loading required package: Matrix
+
+``` r
+library(forcats)
+library(ggplot2)
+
+# emm_options(lmerTest.limit = 17000)
+# emm_options(pbkrtest.limit = 17000)
+knitr::opts_chunk$set(echo = TRUE)
+
+hex_color_list = c(
+    "#826AED",  # Medium-bright purple
+    "#1B998B",  # Medium-dark teal
+    "#D41976",  # Strong pink
+    "#81D6E3",  # Bright turquoise blue
+    "#DE1A1A",  # Bright red
+    "#F2D398",  # Soft, warm beige
+    "#136F63",  # Dark green with a hint of blue
+    "#F45B69",  # Vibrant pinkish-red
+    "#EFAAC4",  # Soft, muted pink
+    "#342E37",  # Dark grayish-purple
+    "#FBC02D",  # Medium-bright golden yellow
+    "#3A3042",  # Dark grayish-purple
+    "#2C3531",  # Dark charcoal gray with a green undertone
+    "#E87461",  # Medium-bright orange
+    "#1C7293"   # Medium-dark blue
+)
+
+relabel_func <- function(x) {
+  x %>% 
+    str_replace_all("_", " ") %>%
+    tools::toTitleCase()
+}
+```
+
+## Load Data
 
     ## New names:
     ## Rows: 16314 Columns: 24
@@ -26,34 +111,15 @@ df <- read_csv("https://raw.githubusercontent.com/josh-ashkinaze/attention/main/
     ## Specify the column types or set `show_col_types = FALSE` to quiet this message.
     ## • `` -> `...1`
 
-``` r
-df$year <- year(df$date)
-df$month <- month(df$date)
-df$week <- week(df$date)
-
-# kwid is unique kw-id: (event, keyword, search_type)
-df$kwid <- paste(paste(df$kw, df$event, "_"), df$search_type, "_")
-
-# kwe is (keyword, event)
-df$kwe <- paste(paste(df$kw, df$event, "_"))
-                
-df$search_type <- factor(df$search_type)
-df$search_type <- relevel(df$search_type, ref = "web")
-df$period <- factor(df$period)
-df$period <- relevel(df$period, "control")
-df$kw <- as.factor(df$kw)
-df$event <- as.factor(df$event)
-df$log_val <- log(df$value+1)
-```
-
 # Modeling
 
-Note: Point estimates are the same between
+- Point estimates are nearly identical between fixed efffects model with
+  Newey West errors and nested rfx, so that’s good
+- Crossed rfx don’t converge so we won’t use that
+
+## Random Effects models
 
 ``` r
-##############################################
-# RANDOM FX 
-##############################################
 # Make mixed model 
 model.crossed <- lmer(value ~ start_delta + year + month + period*search_type + (1 | kw) + (1|event), data = df)
 ```
@@ -62,10 +128,11 @@ model.crossed <- lmer(value ~ start_delta + year + month + period*search_type + 
 
 ``` r
 model.nested <- lmer(value ~ start_delta + year + month + period*search_type + (1 | event/kw), data = df)
+```
 
-##############################################
-# PANEL MODEL VERSION
-##############################################
+## Panel Model
+
+``` r
 # Fit the fixed effects model and then get newey west standard errors
 fem <- plm(value ~ period * search_type, data = df, model = "within", index = c("kwe", "date", "search_type"))
 ```
@@ -77,11 +144,13 @@ fem <- plm(value ~ period * search_type, data = df, model = "within", index = c(
 fixed_ses <- summary(fem, vcov = vcovNW)
 fem_robust_se <- fixed_ses$coefficients[, 2]
 fem_p_values <- fixed_ses$coefficients[, 4]
+```
 
+## Look at contrasts and graph emmeans
 
-##############################################
-# LOOK AT/PLOT CONTRASTS
-##############################################
+### Contrasts
+
+``` r
 # Look at contrasts: 
 # For rumors, is attention higher for google news and YT vs web?
 # For announcements, is attention higher for web vs google news and YT?
@@ -125,100 +194,120 @@ print(pairs)
     ## Degrees-of-freedom method: asymptotic 
     ## P value adjustment: tukey method for comparing a family of 3 estimates
 
+### Graph
+
 ``` r
 # Let's graph the Search Type X Period emmeans
 em_df$lower <- em_df$asymp.LCL
 em_df$upper <- em_df$asymp.UCL
-ggplot(data=data.frame(em_df), aes(x=period, y=emmean, fill=search_type, ymin=lower, ymax=upper)) + 
-  geom_bar(stat="identity", position=position_dodge(width=0.9)) +
-  geom_errorbar(position=position_dodge(width=0.9), width=0.2) +
-  labs(x="Period", y="Normalized Attention (0-100)", fill="Search type", title="People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.", subtitle="Data from Google Trends.\nPoint estimates and 95% CIs are marginal means from mixed effects model.") + theme_nice() + scale_fill_manual(values = hex_color_list)
+g <- ggplot(
+  data = data.frame(em_df),
+  aes(
+    x = fct_relabel(period, .fun = relabel_func),
+    y = emmean,
+    fill = fct_relabel(search_type, .fun = relabel_func),
+    ymin = lower,
+    ymax = upper
+  )
+) +
+  geom_bar(
+    stat = "identity",
+    position = position_dodge(width = 0.9),
+    color = "black"
+  ) +
+  geom_errorbar(position = position_dodge(width = 0.9), width = 0.2) +
+  labs(
+    x = "Period",
+    y = "Normalized Daily Search Volume",
+    fill = "Search type",
+    title = "People are more likely to turn to the web during announcements\nand more likely to turn to platforms during rumors.",
+    subtitle = paste(
+      "Time series keyword search data for 26 U.S political events that had both\na rumor and official announcement phase. (N =",
+      nrow(df),
+      " observations)\n\nPoint estimates and 95% CIs are estimated marginal means from mixed effects model."
+    )
+  ) +
+  theme_nice() + scale_fill_manual(values = hex_color_list)
+g
 ```
 
-![](rmods_files/figure-gfm/mixed_linar-1.png)<!-- -->
+![](rmods_files/figure-gfm/make_graph-1.png)<!-- -->
 
 ``` r
-##############################################
-# DISPLAY MODELS
-##############################################
-models <- list(model.crossed, model.nested, fem)
-model_names <- c("Crossed", 
-                 "Nested", 
-                 "Fixed Effect Model\n(Newey West Clustered Errors)")
+ggsave("model_results.png", dpi = 300)
+```
 
-stargazer(models, 
+    ## Saving 7 x 5 in image
+
+## Display models
+
+``` r
+models <- list(model.nested, fem)
+model_names <- c("Nested Random Effects Model", 
+                 "Fixed Effect Model")
+
+s <- stargazer(models, 
           dep.var.labels = c("Normalized Attention"),
           model.names = TRUE,
           column.labels = model_names, 
-          type = 'latex', 
-          se = list(NULL, NULL, fem_robust_se), 
-          p = list(NULL, NULL, fem_p_values))
+          type = 'text', 
+          se = list(NULL, fem_robust_se), 
+          p = list(NULL, fem_p_values))
 ```
 
     ## 
-    ## % Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
-    ## % Date and time: Mon, Jun 19, 2023 - 11:26:44
-    ## \begin{table}[!htbp] \centering 
-    ##   \caption{} 
-    ##   \label{} 
-    ## \begin{tabular}{@{\extracolsep{5pt}}lccc} 
-    ## \\[-1.8ex]\hline 
-    ## \hline \\[-1.8ex] 
-    ##  & \multicolumn{3}{c}{\textit{Dependent variable:}} \\ 
-    ## \cline{2-4} 
-    ## \\[-1.8ex] & \multicolumn{3}{c}{Normalized Attention} \\ 
-    ## \\[-1.8ex] & \multicolumn{2}{c}{\textit{linear}} & \textit{panel} \\ 
-    ##  & \multicolumn{2}{c}{\textit{mixed-effects}} & \textit{linear} \\ 
-    ##  & Crossed & Nested & Fixed Effect Model
-    ## (Newey West Clustered Errors) \\ 
-    ## \\[-1.8ex] & (1) & (2) & (3)\\ 
-    ## \hline \\[-1.8ex] 
-    ##  start\_delta & 0.059$^{***}$ & 0.058$^{***}$ &  \\ 
-    ##   & (0.006) & (0.006) &  \\ 
-    ##   & & & \\ 
-    ##  year & 1.475$^{**}$ & 1.949$^{**}$ &  \\ 
-    ##   & (0.719) & (0.981) &  \\ 
-    ##   & & & \\ 
-    ##  month & $-$0.094 & $-$0.058 &  \\ 
-    ##   & (0.081) & (0.099) &  \\ 
-    ##   & & & \\ 
-    ##  periodannounce\_period & 57.762$^{***}$ & 57.758$^{***}$ & 58.520$^{***}$ \\ 
-    ##   & (2.234) & (2.234) & (4.610) \\ 
-    ##   & & & \\ 
-    ##  periodrumor\_period & 2.658 & 2.659 & 1.895 \\ 
-    ##   & (2.234) & (2.234) & (2.561) \\ 
-    ##   & & & \\ 
-    ##  search\_typegoogle\_news & 2.620$^{***}$ & 2.620$^{***}$ & 2.620$^{***}$ \\ 
-    ##   & (0.345) & (0.345) & (0.413) \\ 
-    ##   & & & \\ 
-    ##  search\_typeyoutube & 2.846$^{***}$ & 2.846$^{***}$ & 2.846$^{***}$ \\ 
-    ##   & (0.345) & (0.345) & (0.414) \\ 
-    ##   & & & \\ 
-    ##  periodannounce\_period:search\_typegoogle\_news & $-$29.652$^{***}$ & $-$29.652$^{***}$ & $-$29.652$^{***}$ \\ 
-    ##   & (3.158) & (3.158) & (6.439) \\ 
-    ##   & & & \\ 
-    ##  periodrumor\_period:search\_typegoogle\_news & 10.223$^{***}$ & 10.223$^{***}$ & 10.223$^{**}$ \\ 
-    ##   & (3.158) & (3.158) & (4.696) \\ 
-    ##   & & & \\ 
-    ##  periodannounce\_period:search\_typeyoutube & $-$35.690$^{***}$ & $-$35.690$^{***}$ & $-$35.690$^{***}$ \\ 
-    ##   & (3.158) & (3.158) & (6.232) \\ 
-    ##   & & & \\ 
-    ##  periodrumor\_period:search\_typeyoutube & 9.091$^{***}$ & 9.091$^{***}$ & 9.091$^{**}$ \\ 
-    ##   & (3.158) & (3.158) & (4.602) \\ 
-    ##   & & & \\ 
-    ##  Constant & $-$2,971.032$^{**}$ & $-$3,928.704$^{**}$ &  \\ 
-    ##   & (1,451.359) & (1,979.393) &  \\ 
-    ##   & & & \\ 
-    ## \hline \\[-1.8ex] 
-    ## Observations & 16,314 & 16,314 & 16,314 \\ 
-    ## R$^{2}$ &  &  & 0.062 \\ 
-    ## Adjusted R$^{2}$ &  &  & 0.058 \\ 
-    ## Log Likelihood & $-$70,178.520 & $-$70,195.290 &  \\ 
-    ## Akaike Inf. Crit. & 140,387.000 & 140,420.600 &  \\ 
-    ## Bayesian Inf. Crit. & 140,502.500 & 140,536.100 &  \\ 
-    ## F Statistic &  &  & 133.648$^{***}$ (df = 8; 16242) \\ 
-    ## \hline 
-    ## \hline \\[-1.8ex] 
-    ## \textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
-    ## \end{tabular} 
-    ## \end{table}
+    ## ===================================================================================================
+    ##                                                               Dependent variable:                  
+    ##                                              ------------------------------------------------------
+    ##                                                               Normalized Attention                 
+    ##                                                        linear                      panel           
+    ##                                                     mixed-effects                  linear          
+    ##                                              Nested Random Effects Model     Fixed Effect Model    
+    ##                                                          (1)                        (2)            
+    ## ---------------------------------------------------------------------------------------------------
+    ## start_delta                                           0.058***                                     
+    ##                                                        (0.006)                                     
+    ##                                                                                                    
+    ## year                                                   1.949**                                     
+    ##                                                        (0.981)                                     
+    ##                                                                                                    
+    ## month                                                  -0.058                                      
+    ##                                                        (0.099)                                     
+    ##                                                                                                    
+    ## periodannounce_period                                 57.758***                  58.520***         
+    ##                                                        (2.234)                    (4.610)          
+    ##                                                                                                    
+    ## periodrumor_period                                      2.659                      1.895           
+    ##                                                        (2.234)                    (2.561)          
+    ##                                                                                                    
+    ## search_typegoogle_news                                2.620***                    2.620***         
+    ##                                                        (0.345)                    (0.413)          
+    ##                                                                                                    
+    ## search_typeyoutube                                    2.846***                    2.846***         
+    ##                                                        (0.345)                    (0.414)          
+    ##                                                                                                    
+    ## periodannounce_period:search_typegoogle_news         -29.652***                  -29.652***        
+    ##                                                        (3.158)                    (6.439)          
+    ##                                                                                                    
+    ## periodrumor_period:search_typegoogle_news             10.223***                   10.223**         
+    ##                                                        (3.158)                    (4.696)          
+    ##                                                                                                    
+    ## periodannounce_period:search_typeyoutube             -35.690***                  -35.690***        
+    ##                                                        (3.158)                    (6.232)          
+    ##                                                                                                    
+    ## periodrumor_period:search_typeyoutube                 9.091***                    9.091**          
+    ##                                                        (3.158)                    (4.602)          
+    ##                                                                                                    
+    ## Constant                                            -3,928.704**                                   
+    ##                                                      (1,979.393)                                   
+    ##                                                                                                    
+    ## ---------------------------------------------------------------------------------------------------
+    ## Observations                                           16,314                      16,314          
+    ## R2                                                                                 0.062           
+    ## Adjusted R2                                                                        0.058           
+    ## Log Likelihood                                       -70,195.290                                   
+    ## Akaike Inf. Crit.                                    140,420.600                                   
+    ## Bayesian Inf. Crit.                                  140,536.100                                   
+    ## F Statistic                                                              133.648*** (df = 8; 16242)
+    ## ===================================================================================================
+    ## Note:                                                                   *p<0.1; **p<0.05; ***p<0.01
