@@ -2,12 +2,12 @@
 title: "Models"
 author: "Joshua Ashkinaze"
 date: "2023-03-28"
-output: github_document
+output: pdf_document
 ---
 
 # Load packages
 
-```{r setup, display=TRUE, echo=TRUE}
+```{r setup, display=TRUE, echo=FALSE}
 library(emmeans)
 library(dplyr)
 library(plm)
